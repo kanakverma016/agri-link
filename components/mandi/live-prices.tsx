@@ -37,6 +37,7 @@ export function LivePrices({
   const [rows, setRows] = useState<PriceRow[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [fruit, setFruit] = useState(false)
+  const [approximate, setApproximate] = useState(false)
 
   const [chartMandi, setChartMandi] = useState<string | null>(null)
   const [days, setDays] = useState<(typeof SPANS)[number]>(30)
@@ -61,11 +62,12 @@ export function LivePrices({
       setFruit(isFruit(english))
       setLoading(true)
       try {
-        const res = await postJson<{ text: string; sources: Source[] }>('/api/mandi/prices', {
+        const res = await postJson<{ text: string; sources: Source[]; approximate?: boolean }>('/api/mandi/prices', {
           crop: english,
           district: location.district,
           state: location.state,
         })
+        setApproximate(Boolean(res.approximate))
         setRawText(res.text)
         setRows(parseMandiPrices(res.text))
         setSources(res.sources)
@@ -294,7 +296,12 @@ export function LivePrices({
               )}
               {!loading && !error && rawText && (
                 <div className="mt-4 border-t pt-3 text-xs text-gray-500">
-                  {sources.length > 0 ? (
+                  {approximate ? (
+                    <p className="flex items-start gap-1 text-amber-700">
+                      <i className="ph-fill ph-info mt-0.5 text-sm" aria-hidden="true" />
+                      Live market search is busy right now, so these are AI estimates. Confirm the rate at your mandi before selling.
+                    </p>
+                  ) : sources.length > 0 ? (
                     <>
                       Sources:
                       <br />
