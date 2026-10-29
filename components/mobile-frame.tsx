@@ -43,7 +43,7 @@ export function MobileFrame({
           />
         </div>
         {children}
-        <InstallButton className="absolute bottom-24 left-1/2 z-20 flex -translate-x-1/2 animate-fade-up items-center gap-1 rounded-full bg-green-700 py-1 pl-4 pr-1 text-sm font-bold text-white shadow-lg" />
+        <InstallButton className="absolute bottom-24 left-4 z-20 flex animate-fade-up items-center gap-1 rounded-full bg-green-700 py-1 pl-4 pr-1 text-sm font-bold text-white shadow-lg" />
       </div>
     </div>
   )
