@@ -1,4 +1,5 @@
 import 'server-only'
+import { getGeminiKeys, shouldRotateKey } from '@/lib/server/gemini-keys'
 
 const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.5-flash'
 
@@ -27,16 +28,19 @@ export class GeminiError extends Error {
 
 /** Calls Gemini generateContent, retrying on 429/5xx with exponential backoff. */
 export async function generateContent(body: Record<string, unknown>, maxAttempts = 4) {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) throw new GeminiError('Mandi data service is not configured (GEMINI_API_KEY).', 503)
+  const keys = getGeminiKeys()
+  if (keys.length === 0) throw new GeminiError('Mandi data service is not configured (GEMINI_API_KEY).', 503)
 
   let delay = 1000
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  let keyIndex = 0
+  let attempt = 0
+  while (attempt < maxAttempts) {
+    attempt++
     let res: Response
     try {
       res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': keys[keyIndex] },
         body: JSON.stringify(body),
         cache: 'no-store',
       })
@@ -63,12 +67,18 @@ export async function generateContent(body: Record<string, unknown>, maxAttempts
       return { text, candidate: candidate as GeminiCandidate }
     }
 
+    const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+
+    if (shouldRotateKey(res.status, err?.error?.message) && keyIndex < keys.length - 1) {
+      keyIndex++
+      attempt--
+      continue
+    }
     if ((res.status === 429 || res.status >= 500) && attempt < maxAttempts) {
       await new Promise((r) => setTimeout(r, delay))
       delay *= 2
       continue
     }
-    const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
     throw new GeminiError(
       err?.error?.message ?? `API Error (${res.status})`,
       res.status === 429 ? 429 : 502,
