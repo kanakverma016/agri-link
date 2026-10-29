@@ -8,7 +8,7 @@ import { getStorage, type FirebaseStorage } from 'firebase/storage'
 // environment variables can still override them per deployment.
 const firebaseConfig = {
   apiKey:
-    process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? process.env.GCP_API_KEY_2 ?? 'AIzaSyCry6qVAxY48abhA0NtesZBiVOM4GIUAY',
+    process.env.GCP_API_KEY_2 ?? process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? 'AIzaSyCry6qVAxY48abhA0NtesZBiVOM4GIUAY',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? 'agri-link-157cf.firebaseapp.com',
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'agri-link-157cf',
   storageBucket:
