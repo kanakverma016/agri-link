@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { doc, updateDoc } from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
-import { db, storage } from '@/lib/firebase'
+import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
@@ -63,10 +61,9 @@ export function ProfileForm() {
     setPicture(URL.createObjectURL(file))
     setUploading(true)
     try {
-      const storageRef = ref(storage, `users/${user.uid}/profilePicture/${file.name}`)
-      await uploadBytes(storageRef, file)
-      const url = await getDownloadURL(storageRef)
-      await updateDoc(doc(db, 'users', user.uid), { profilePicture: url })
+      const url = await uploadMedia(user.uid, `profilePicture/${Date.now()}-${safeFileName(file.name)}`, file)
+      const { error } = await createClient().from('profiles').update({ profilePicture: url }).eq('id', user.uid)
+      if (error) throw error
       setPicture(url)
       await refreshProfile()
       showAlert('Success', 'Profile picture updated!')
@@ -84,15 +81,19 @@ export function ProfileForm() {
     if (!user) return
     setSaving(true)
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        name: form.name,
-        phone: form.phone,
-        landHolding: parseFloat(form.land) || 0,
-        state: form.state,
-        district: form.district,
-        block: form.block,
-        village: form.village,
-      })
+      const { error } = await createClient()
+        .from('profiles')
+        .update({
+          name: form.name,
+          phone: form.phone,
+          landHolding: parseFloat(form.land) || 0,
+          state: form.state,
+          district: form.district,
+          block: form.block,
+          village: form.village,
+        })
+        .eq('id', user.uid)
+      if (error) throw error
       await refreshProfile()
       showAlert('Success', 'Your profile has been updated!')
     } catch (error) {

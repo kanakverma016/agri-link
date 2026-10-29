@@ -1,16 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import {
-  Timestamp,
-  addDoc,
-  collection,
-  doc,
-  getDocs,
-  serverTimestamp,
-  updateDoc,
-} from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
 import { useVoiceFill } from '@/lib/use-voice-fill'
 
 const OTHER_ACTIVITY = 'Other (अन्य)'
@@ -123,13 +114,17 @@ export function StartCycleModal({ open, onClose, onError, userId, plotId }: Moda
     if (saving) return
     setSaving(true)
     try {
-      await addDoc(collection(db, 'users', userId, 'plots', plotId, 'cycles'), {
-        cropName: cropName.trim(),
-        variety: variety.trim(),
-        sowingDate: Timestamp.fromDate(new Date(sowingDate)),
-        status: 'Active',
-        createdAt: serverTimestamp(),
-      })
+      const { error } = await createClient()
+        .from('cycles')
+        .insert({
+          userId,
+          plotId,
+          cropName: cropName.trim(),
+          variety: variety.trim(),
+          sowingDate: new Date(sowingDate).toISOString(),
+          status: 'Active',
+        })
+      if (error) throw error
       close()
     } catch (err) {
       console.error('Error starting cycle: ', err)
@@ -244,16 +239,17 @@ export function AddActivityModal({
     }
     setSaving(true)
     try {
-      await addDoc(
-        collection(db, 'users', userId, 'plots', plotId, 'cycles', cycleId, 'activities'),
-        {
-          date: Timestamp.fromDate(new Date(date)),
+      const { error } = await createClient()
+        .from('activities')
+        .insert({
+          userId,
+          cycleId,
+          date: new Date(date).toISOString(),
           type: finalType,
           description,
           cost: parseFloat(cost) || 0,
-          createdAt: serverTimestamp(),
-        },
-      )
+        })
+      if (error) throw error
       close()
     } catch (err) {
       console.error('Error adding activity: ', err)
@@ -388,18 +384,26 @@ export function HarvestModal({
     }
     setSaving(true)
     try {
-      const activities = await getDocs(
-        collection(db, 'users', userId, 'plots', plotId, 'cycles', cycleId, 'activities'),
-      )
-      const totalCost = activities.docs.reduce((sum, d) => sum + (d.data().cost || 0), 0)
-      await updateDoc(doc(db, 'users', userId, 'plots', plotId, 'cycles', cycleId), {
-        status: 'Harvested',
-        harvestDate: Timestamp.fromDate(new Date(date)),
-        totalYield: parseFloat(totalYield) || 0,
-        yieldUnit,
-        sellingPrice: parseFloat(sellingPrice) || 0,
-        totalCost,
-      })
+      const supabase = createClient()
+      const { data: activities, error: activitiesError } = await supabase
+        .from('activities')
+        .select('cost')
+        .eq('cycleId', cycleId)
+      if (activitiesError) throw activitiesError
+      const totalCost = (activities ?? []).reduce((sum, a) => sum + (Number(a.cost) || 0), 0)
+      const { error } = await supabase
+        .from('cycles')
+        .update({
+          status: 'Harvested',
+          harvestDate: new Date(date).toISOString(),
+          totalYield: parseFloat(totalYield) || 0,
+          yieldUnit,
+          sellingPrice: parseFloat(sellingPrice) || 0,
+          totalCost,
+        })
+        .eq('id', cycleId)
+        .eq('plotId', plotId)
+      if (error) throw error
       close()
     } catch (err) {
       console.error('Error harvesting crop: ', err)

@@ -1,15 +1,8 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import {
-  browserLocalPersistence,
-  onAuthStateChanged,
-  setPersistence,
-  signOut,
-  type User,
-} from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
-import { auth, db } from '@/lib/firebase'
+import type { User } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 
 export type UserProfile = {
   name?: string
@@ -25,8 +18,15 @@ export type UserProfile = {
   [key: string]: unknown
 }
 
+export type AppUser = {
+  uid: string
+  email: string | null
+  displayName: string | null
+  photoURL: string | null
+}
+
 type AuthContextValue = {
-  user: User | null
+  user: AppUser | null
   profile: UserProfile | null
   loading: boolean
   refreshProfile: () => Promise<void>
@@ -35,51 +35,59 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+function toAppUser(user: User | null | undefined): AppUser | null {
+  if (!user) return null
+  const meta = user.user_metadata ?? {}
+  return {
+    uid: user.id,
+    email: user.email ?? null,
+    displayName: (meta.full_name as string) ?? (meta.name as string) ?? null,
+    photoURL: (meta.avatar_url as string) ?? (meta.picture as string) ?? null,
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AppUser | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const loadProfile = useCallback(async (firebaseUser: User | null) => {
-    if (!firebaseUser) {
+  const loadProfile = useCallback(async (userId: string | null) => {
+    if (!userId) {
       setProfile(null)
       return
     }
-    try {
-      const snap = await getDoc(doc(db, 'users', firebaseUser.uid))
-      setProfile(snap.exists() ? (snap.data() as UserProfile) : null)
-    } catch (error) {
-      console.error('Failed to load user profile:', error)
-      setProfile(null)
-    }
+    const { data, error } = await createClient().from('profiles').select('*').eq('id', userId).maybeSingle()
+    if (error) console.error('Failed to load user profile:', error)
+    setProfile((data as UserProfile | null) ?? null)
   }, [])
 
   useEffect(() => {
-    let unsubscribe = () => {}
+    const supabase = createClient()
     let active = true
 
-    void setPersistence(auth, browserLocalPersistence)
-      .then(() => {
-        if (!active) return
-        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          setUser(firebaseUser)
-          await loadProfile(firebaseUser)
-          setLoading(false)
-        })
-      })
-      .catch((error) => {
-        console.error('Failed to initialize Firebase auth persistence:', error)
-        if (active) setLoading(false)
-      })
+    const apply = async (sessionUser: User | null | undefined) => {
+      const next = toAppUser(sessionUser)
+      setUser((prev) => (prev?.uid === next?.uid ? prev : next))
+      await loadProfile(next?.uid ?? null)
+      if (active) setLoading(false)
+    }
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED') return
+      // Defer to avoid deadlocks with supabase-js auth callbacks.
+      setTimeout(() => void apply(session?.user), 0)
+    })
 
     return () => {
       active = false
-      unsubscribe()
+      data.subscription.unsubscribe()
     }
   }, [loadProfile])
 
-  const refreshProfile = useCallback(() => loadProfile(auth.currentUser), [loadProfile])
-  const logout = useCallback(() => signOut(auth), [])
+  const refreshProfile = useCallback(() => loadProfile(user?.uid ?? null), [loadProfile, user?.uid])
+  const logout = useCallback(async () => {
+    await createClient().auth.signOut()
+  }, [])
 
   const value = useMemo(
     () => ({ user, profile, loading, refreshProfile, logout }),
@@ -93,4 +101,8 @@ export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
+}
+
+export function isProfileComplete(profile: UserProfile | null) {
+  return Boolean(profile?.state && profile?.district && profile?.village)
 }

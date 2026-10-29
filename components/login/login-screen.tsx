@@ -1,16 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-} from 'firebase/auth'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { auth, db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
+import { isProfileComplete, useAuth } from '@/components/providers/auth-provider'
+
+const redirectUrl = () =>
+  process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`
 
 type Mode = 'login' | 'register' | 'complete-profile' | 'verify-sent'
 
@@ -128,55 +124,70 @@ export function LoginScreen() {
     setError('')
   }
 
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth()
+
+  // Signed-in users (e.g. returning from Google) either go home or finish their profile.
+  useEffect(() => {
+    if (authLoading || !user || mode === 'verify-sent') return
+    if (isProfileComplete(profile)) {
+      router.replace('/')
+    } else if (profile) {
+      setGoogleName(profile.name || user.displayName || '')
+      setGoogleEmail(profile.email || user.email || '')
+      setMode('complete-profile')
+    }
+  }, [authLoading, user, profile, mode, router])
+
   const messageOf = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong.')
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    try {
-      const { user } = await signInWithEmailAndPassword(auth, loginEmail, loginPassword)
-      if (user.emailVerified) {
-        router.push('/')
-      } else {
-        setError('Please verify your email before logging in. Check your inbox.')
-        setLoading(false)
-      }
-    } catch (err) {
-      setError(messageOf(err))
+    const { error: signInError } = await createClient().auth.signInWithPassword({
+      email: loginEmail,
+      password: loginPassword,
+    })
+    if (signInError) {
+      setError(
+        /not confirmed/i.test(signInError.message)
+          ? 'Please verify your email before logging in. Check your inbox.'
+          : 'Invalid email or password.',
+      )
       setLoading(false)
+      return
     }
+    router.push('/')
   }
 
   async function handleGoogle() {
     setError('')
-    try {
-      const { user } = await signInWithPopup(auth, new GoogleAuthProvider())
-      const snap = await getDoc(doc(db, 'users', user.uid))
-      if (snap.exists()) {
-        router.push('/')
-      } else {
-        setGoogleName(user.displayName ?? '')
-        setGoogleEmail(user.email ?? '')
-        setMode('complete-profile')
-      }
-    } catch (err) {
-      setError(messageOf(err))
+    const { data, error: oauthError } = await createClient().auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: redirectUrl(), skipBrowserRedirect: true },
+    })
+    if (oauthError || !data.url) {
+      setError(messageOf(oauthError ?? new Error('Google sign-in is not available right now.')))
+      return
     }
+    // Google blocks framing, so inside the preview iframe the flow opens in a new tab.
+    if (window.self !== window.top) window.open(data.url, '_blank')
+    else window.location.assign(data.url)
   }
 
   async function handleCompleteProfile(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const user = auth.currentUser
     if (!user) {
       setError('You are not logged in.')
       setLoading(false)
       return
     }
-    try {
-      await setDoc(doc(db, 'users', user.uid), {
+    const { error: saveError } = await createClient()
+      .from('profiles')
+      .upsert({
+        id: user.uid,
         name: googleName,
         email: googleEmail,
         phone: profileFields.phone,
@@ -188,38 +199,42 @@ export function LoginScreen() {
         userType: 'Farmer',
         profilePicture: user.photoURL || null,
       })
-      router.push('/')
-    } catch (err) {
-      setError(messageOf(err))
+    if (saveError) {
+      setError(messageOf(saveError))
       setLoading(false)
+      return
     }
+    await refreshProfile()
+    router.push('/')
   }
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    try {
-      const { user } = await createUserWithEmailAndPassword(auth, regEmail, regPassword)
-      await sendEmailVerification(user)
-      await setDoc(doc(db, 'users', user.uid), {
-        name: regName,
-        email: regEmail,
-        phone: regFields.phone,
-        landHolding: parseFloat(regFields.land),
-        state: regFields.state,
-        district: regFields.district,
-        block: regFields.block,
-        village: regFields.village,
-        userType: 'Farmer',
-        profilePicture: null,
-      })
-      setMode('verify-sent')
-    } catch (err) {
-      setError(messageOf(err))
-    } finally {
-      setLoading(false)
+    const { data, error: signUpError } = await createClient().auth.signUp({
+      email: regEmail,
+      password: regPassword,
+      options: {
+        emailRedirectTo: redirectUrl(),
+        data: {
+          name: regName,
+          phone: regFields.phone,
+          landHolding: regFields.land,
+          state: regFields.state,
+          district: regFields.district,
+          block: regFields.block,
+          village: regFields.village,
+        },
+      },
+    })
+    setLoading(false)
+    if (signUpError) {
+      setError(signUpError.message)
+      return
     }
+    // With email confirmation on there is no session yet; show the "check your email" step.
+    if (!data.session) setMode('verify-sent')
   }
 
   return (

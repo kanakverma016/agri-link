@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
@@ -34,11 +33,16 @@ export function LogisticsScreen() {
     let cancelled = false
     async function load(uid: string) {
       try {
-        const userDoc = await getDoc(doc(db, 'users', uid))
-        const plotsSnap = await getDocs(collection(db, 'users', uid, 'plots'))
+        const supabase = createClient()
+        const [profileRes, plotsRes] = await Promise.all([
+          supabase.from('profiles').select('phone').eq('id', uid).maybeSingle(),
+          supabase.from('plots').select('id, plotName').eq('userId', uid),
+        ])
+        if (profileRes.error) throw profileRes.error
+        if (plotsRes.error) throw plotsRes.error
         if (cancelled) return
-        if (userDoc.exists()) setPhone(userDoc.data().phone || '')
-        const list = plotsSnap.docs.map((d) => ({ id: d.id, plotName: d.data().plotName as string }))
+        setPhone(profileRes.data?.phone || '')
+        const list = (plotsRes.data ?? []) as PlotOption[]
         setPlots(list)
         if (list.length) setPlotId(list[0].id)
       } catch (err) {
@@ -61,16 +65,17 @@ export function LogisticsScreen() {
     if (!plot) return
     setSubmitting(true)
     try {
-      await addDoc(collection(db, 'users', user.uid, 'bookings'), {
+      const { error } = await createClient().from('bookings').insert({
+        userId: user.uid,
         serviceType,
         plotId: plot.id,
         plotName: plot.plotName,
         destination: destination.trim(),
-        bookingDate: new Date(bookingDate),
+        bookingDate: new Date(bookingDate).toISOString(),
         contactPhone: phone,
         status: 'Pending',
-        createdAt: serverTimestamp(),
       })
+      if (error) throw error
       showAlert('Success', 'Your booking request has been submitted!')
       setTimeout(() => router.push('/my-bookings'), 1500)
     } catch (err) {

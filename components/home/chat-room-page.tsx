@@ -1,18 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  addDoc,
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-} from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
-import { db, storage } from '@/lib/firebase'
+import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { useAuth } from '@/components/providers/auth-provider'
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition'
 import { useTts } from '@/hooks/use-tts'
@@ -61,8 +51,17 @@ export function ChatRoomPage({
   showAlert: (title: string, message: string) => void
 }) {
   const { user } = useAuth()
-  const [messages, setMessages] = useState<ChatMessage[] | null>(null)
-  const [loadError, setLoadError] = useState(false)
+  const {
+    items,
+    loading,
+    error: loadError,
+  } = useLiveQuery<ChatMessage>({
+    table: 'messages',
+    eq: { chatId: chat.chatId },
+    orderBy: 'timestamp',
+    ascending: true,
+  })
+  const messages = loading ? null : items
   const [text, setText] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -71,21 +70,6 @@ export function ChatRoomPage({
   const inputRef = useRef<HTMLInputElement>(null)
   const tts = useTts(showAlert)
   const mic = useSpeechRecognition((t) => setText((prev) => prev + (prev ? ' ' : '') + t))
-
-  useEffect(() => {
-    const q = query(collection(db, 'chats', chat.chatId, 'messages'), orderBy('timestamp'))
-    return onSnapshot(
-      q,
-      (snapshot) => {
-        setMessages(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ChatMessage, 'id'>) })))
-        setLoadError(false)
-      },
-      (err) => {
-        console.error('Error loading messages: ', err)
-        setLoadError(true)
-      },
-    )
-  }, [chat.chatId])
 
   useEffect(() => {
     const el = containerRef.current
@@ -115,20 +99,25 @@ export function ChatRoomPage({
     try {
       let imageUrl: string | null = null
       if (imageFile) {
-        const storageRef = ref(storage, `chatImages/${chat.chatId}/${Date.now()}_${imageFile.name}`)
-        const uploaded = await uploadBytesResumable(storageRef, imageFile)
-        imageUrl = await getDownloadURL(uploaded.ref)
+        imageUrl = await uploadMedia(
+          user.uid,
+          `chatImages/${chat.chatId}/${Date.now()}_${safeFileName(imageFile.name)}`,
+          imageFile,
+        )
       }
-      await addDoc(collection(db, 'chats', chat.chatId, 'messages'), {
-        senderId: user.uid,
-        text: messageText,
-        timestamp: serverTimestamp(),
-        imageUrl,
-      })
-      await updateDoc(doc(db, 'chats', chat.chatId), {
-        lastMessage: messageText || 'Sent an image',
-        lastMessageTimestamp: serverTimestamp(),
-      })
+      const supabase = createClient()
+      const { error: messageError } = await supabase
+        .from('messages')
+        .insert({ chatId: chat.chatId, senderId: user.uid, text: messageText, imageUrl })
+      if (messageError) throw messageError
+      const { error: chatError } = await supabase
+        .from('chats')
+        .update({
+          lastMessage: messageText || 'Sent an image',
+          lastMessageTimestamp: new Date().toISOString(),
+        })
+        .eq('id', chat.chatId)
+      if (chatError) throw chatError
       setText('')
       setImageFile(null)
     } catch (error) {

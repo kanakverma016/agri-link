@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
 import { useVoiceFill } from '@/lib/use-voice-fill'
 
 const OTHER_SOIL = 'Other (अन्य)'
@@ -56,13 +55,14 @@ export function AddPlotModal({
     }
     setSaving(true)
     try {
-      await addDoc(collection(db, 'users', userId, 'plots'), {
+      const { error } = await createClient().from('plots').insert({
+        userId,
         plotName: plotName.trim(),
         area: parseFloat(area),
         areaUnit,
         soilType: finalSoil,
-        createdAt: serverTimestamp(),
       })
+      if (error) throw error
       reset()
       onClose()
     } catch (err) {

@@ -1,12 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import useSWR from 'swr'
+import { createClient } from '@/lib/supabase/client'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useAuth } from '@/components/providers/auth-provider'
 import type { ChatDetails } from '@/lib/types'
 
+type ChatRow = {
+  id: string
+  participants: string[]
+  lastMessage: string | null
+  lastMessageTimestamp: string | null
+}
 type ChatItem = ChatDetails & { lastMessage: string; time: string }
 
 export function ChatListPage({
@@ -19,52 +25,61 @@ export function ChatListPage({
   onOpenChat: (chat: ChatDetails) => void
 }) {
   const { user } = useAuth()
-  const [chats, setChats] = useState<ChatItem[] | null>(null)
-  const [error, setError] = useState(false)
+  const {
+    items: rows,
+    loading,
+    error: loadError,
+  } = useLiveQuery<ChatRow>({
+    table: 'chats',
+    enabled: Boolean(user),
+    contains: { column: 'participants', value: user ? [user.uid] : [] },
+    orderBy: 'lastMessageTimestamp',
+    ascending: false,
+  })
 
-  useEffect(() => {
-    if (!user) return
-    const q = query(
-      collection(db, 'chats'),
-      where('participants', 'array-contains', user.uid),
-      orderBy('lastMessageTimestamp', 'desc'),
-    )
-    return onSnapshot(
-      q,
-      async (snapshot) => {
-        const items = await Promise.all(
-          snapshot.docs.map(async (chatDoc): Promise<ChatItem | null> => {
-            const data = chatDoc.data()
-            const otherUid = (data.participants as string[]).find((uid) => uid !== user.uid)
-            if (!otherUid) return null
-            const userSnap = await getDoc(doc(db, 'users', otherUid))
-            const other = userSnap.exists()
-              ? userSnap.data()
-              : { name: 'Deleted User', profilePicture: DEFAULT_PROFILE_LOGO }
-            return {
-              chatId: chatDoc.id,
-              lastMessage: data.lastMessage || '...',
-              time:
-                data.lastMessageTimestamp
-                  ?.toDate()
-                  .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '',
+  const otherUids = Array.from(
+    new Set(rows.flatMap((r) => r.participants.filter((uid) => uid !== user?.uid))),
+  ).sort()
+
+  const { data: people, error: peopleError } = useSWR(
+    otherUids.length ? ['chat-people', ...otherUids] : null,
+    async ([, ...ids]) => {
+      const { data, error } = await createClient()
+        .from('profiles')
+        .select('id, name, profilePicture')
+        .in('id', ids as string[])
+      if (error) throw error
+      return Object.fromEntries((data ?? []).map((p) => [p.id as string, p]))
+    },
+    { revalidateOnFocus: false },
+  )
+
+  const error = loadError || Boolean(peopleError)
+  const chats: ChatItem[] | null =
+    loading || (otherUids.length > 0 && !people)
+      ? null
+      : rows.flatMap((row): ChatItem[] => {
+          const otherUid = row.participants.find((uid) => uid !== user?.uid)
+          if (!otherUid) return []
+          const other = people?.[otherUid]
+          return [
+            {
+              chatId: row.id,
+              lastMessage: row.lastMessage || '...',
+              time: row.lastMessageTimestamp
+                ? new Date(row.lastMessageTimestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '',
               otherUser: {
                 uid: otherUid,
-                name: other.name || 'Unknown User',
-                profilePicture: other.profilePicture || DEFAULT_PROFILE_LOGO,
+                name: other ? other.name || 'Unknown User' : 'Deleted User',
+                profilePicture: other?.profilePicture || DEFAULT_PROFILE_LOGO,
               },
-            }
-          }),
-        )
-        setChats(items.filter((c): c is ChatItem => c !== null))
-        setError(false)
-      },
-      (err) => {
-        console.error('Error loading chats: ', err)
-        setError(true)
-      },
-    )
-  }, [user])
+            },
+          ]
+        })
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-gray-50">

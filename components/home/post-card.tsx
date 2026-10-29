@@ -1,7 +1,6 @@
 'use client'
 
-import { arrayRemove, arrayUnion, doc, getDoc, updateDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { Post } from '@/lib/types'
@@ -11,11 +10,8 @@ export function PostCard({ post, currentUid }: { post: Post; currentUid: string 
   const isLiked = post.likes?.includes(currentUid) ?? false
 
   async function toggleLike() {
-    const postRef = doc(db, 'posts', post.id)
-    const snap = await getDoc(postRef)
-    if (!snap.exists()) return
-    const liked = (snap.data().likes as string[] | undefined)?.includes(currentUid)
-    await updateDoc(postRef, { likes: liked ? arrayRemove(currentUid) : arrayUnion(currentUid) })
+    const { error } = await createClient().rpc('toggle_like', { post_id: post.id })
+    if (error) console.error('Failed to toggle like:', error)
   }
 
   return (
@@ -30,7 +26,7 @@ export function PostCard({ post, currentUid }: { post: Post; currentUid: string 
         <div>
           <p className="font-semibold text-gray-800">{post.authorName || 'Anonymous User'}</p>
           <p className="text-xs text-gray-500">
-            {post.createdAt?.toDate().toLocaleDateString() || 'Just now'}
+            {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Just now'}
           </p>
         </div>
       </div>

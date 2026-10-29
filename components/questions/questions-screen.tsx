@@ -2,18 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import {
-  addDoc,
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-} from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
-import { db, storage } from '@/lib/firebase'
+import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { apiFetch } from '@/lib/api-client'
 import { useSpeechSearch } from '@/lib/use-speech-search'
 import { useAuth } from '@/components/providers/auth-provider'
@@ -33,6 +23,11 @@ const fileToBase64 = (file: File) =>
     reader.readAsDataURL(file)
   })
 
+async function updateQuestion(id: string, patch: Record<string, unknown>) {
+  const { error } = await createClient().from('questions').update(patch).eq('id', id)
+  if (error) throw error
+}
+
 async function fetchSpeech(text: string): Promise<Blob> {
   const res = await apiFetch('/api/tts', {
     method: 'POST',
@@ -49,9 +44,16 @@ async function fetchSpeech(text: string): Promise<Blob> {
 export function QuestionsScreen() {
   const { user } = useAuth()
   const { alert, showAlert, closeAlert } = useAlert()
-  const [questions, setQuestions] = useState<QuestionDoc[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const {
+    items: questions,
+    loading,
+    error: loadError,
+  } = useLiveQuery<QuestionDoc>({
+    table: 'questions',
+    enabled: Boolean(user),
+    eq: { userId: user?.uid },
+    orderBy: 'createdAt',
+  })
   const [text, setText] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -65,23 +67,6 @@ export function QuestionsScreen() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const speech = useSpeechSearch((t) => setText((prev) => (prev ? `${prev} ${t}` : t)), 'hi-IN')
-
-  useEffect(() => {
-    if (!user) return
-    const q = query(collection(db, 'users', user.uid, 'questions'), orderBy('createdAt', 'desc'))
-    return onSnapshot(
-      q,
-      (snap) => {
-        setQuestions(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<QuestionDoc, 'id'>) })))
-        setLoading(false)
-      },
-      (err) => {
-        console.error('Error loading history:', err)
-        setLoadError(true)
-        setLoading(false)
-      },
-    )
-  }, [user])
 
   const stopAudio = useCallback(() => {
     audioRef.current?.pause()
@@ -117,18 +102,17 @@ export function QuestionsScreen() {
 
   const pregenerateAudio = async (docId: string, answer: string) => {
     if (!user) return
-    const docRef = doc(db, 'users', user.uid, 'questions', docId)
     if (answer.includes('माफ़ करें')) {
-      await updateDoc(docRef, { audioURL: 'failed' }).catch(() => {})
+      await updateQuestion(docId, { audioURL: 'failed' }).catch(() => {})
       return
     }
     try {
       const blob = await fetchSpeech(answer)
-      const snapshot = await uploadBytes(ref(storage, `users/${user.uid}/questionAudio/${docId}.wav`), blob)
-      await updateDoc(docRef, { audioURL: await getDownloadURL(snapshot.ref) })
+      const url = await uploadMedia(user.uid, `questionAudio/${docId}.wav`, blob, 'audio/wav')
+      await updateQuestion(docId, { audioURL: url })
     } catch (err) {
       console.error(`Error pre-generating audio for ${docId}:`, err)
-      await updateDoc(docRef, { audioURL: 'failed' }).catch(() => {})
+      await updateQuestion(docId, { audioURL: 'failed' }).catch(() => {})
     }
   }
 
@@ -143,29 +127,30 @@ export function QuestionsScreen() {
     setSubmitting(true)
     const controller = new AbortController()
     abortRef.current = controller
-    let docRef: ReturnType<typeof doc> | null = null
+    let questionId: string | null = null
 
     try {
       let questionImageURL: string | null = null
       let imageBase64: string | null = null
       if (file) {
-        const snapshot = await uploadBytes(
-          ref(storage, `users/${user.uid}/images/${Date.now()}_${file.name.replace(/[^\w.-]/g, '_')}`),
-          file,
-        )
-        questionImageURL = await getDownloadURL(snapshot.ref)
+        questionImageURL = await uploadMedia(user.uid, `images/${Date.now()}_${safeFileName(file.name)}`, file)
         imageBase64 = await fileToBase64(file)
       }
 
-      const created = await addDoc(collection(db, 'users', user.uid, 'questions'), {
-        questionText,
-        questionImageURL,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        answerText: '',
-        audioURL: null,
-      })
-      docRef = created
+      const { data: created, error: insertError } = await createClient()
+        .from('questions')
+        .insert({
+          userId: user.uid,
+          questionText,
+          questionImageURL,
+          status: 'pending',
+          answerText: '',
+          audioURL: null,
+        })
+        .select('id')
+        .single()
+      if (insertError) throw insertError
+      questionId = created.id as string
       clearForm()
 
       const res = await apiFetch('/api/ask', {
@@ -177,17 +162,17 @@ export function QuestionsScreen() {
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error ?? `API request failed with status ${res.status}`)
 
-      await updateDoc(created, { status: 'answered', answerText: data.answer })
-      void pregenerateAudio(created.id, data.answer)
+      await updateQuestion(questionId, { status: 'answered', answerText: data.answer })
+      void pregenerateAudio(questionId, data.answer)
     } catch (error) {
       console.error('Error processing question:', error)
       if (error instanceof DOMException && error.name === 'AbortError') {
-        if (docRef) await updateDoc(docRef, { status: 'answered', answerText: 'Stopped by user.', audioURL: 'failed' })
+        if (questionId) await updateQuestion(questionId, { status: 'answered', answerText: 'Stopped by user.', audioURL: 'failed' })
       } else {
         const message = error instanceof Error ? error.message : 'Unknown error'
         showAlert('Error', `Error processing question. ${message}`)
-        if (docRef) {
-          await updateDoc(docRef, {
+        if (questionId) {
+          await updateQuestion(questionId, {
             status: 'answered',
             answerText: `Sorry, I couldn't get an answer. Please try again. \nError: ${message}`,
             audioURL: 'failed',
@@ -207,7 +192,7 @@ export function QuestionsScreen() {
     }
     if (!user) return
     try {
-      await updateDoc(doc(db, 'users', user.uid, 'questions', id), {
+      await updateQuestion(id, {
         status: 'answered',
         answerText: 'Stopped by user.',
         audioURL: 'failed',

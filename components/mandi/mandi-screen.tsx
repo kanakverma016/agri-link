@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
@@ -54,14 +53,17 @@ export function MandiScreen() {
   useEffect(() => {
     if (!user) return
     let cancelled = false
-    getDoc(doc(db, 'users', user.uid))
-      .then((snap) => {
-        if (cancelled || !snap.exists()) return
-        const data = snap.data() as { state?: string; district?: string }
+    createClient()
+      .from('profiles')
+      .select('state, district')
+      .eq('id', user.uid)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) return console.error('Error loading location:', error)
+        if (cancelled || !data) return
         const state = data.state?.toLowerCase().includes('pardesh') ? 'Uttar Pradesh' : (data.state ?? null)
         setLocation({ state, district: data.district ?? null })
       })
-      .catch((err) => console.error('Error loading location:', err))
     return () => {
       cancelled = true
     }

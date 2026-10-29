@@ -1,10 +1,10 @@
-import { jsonError, verifyFirebaseUser } from '@/lib/server/verify-auth'
+import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 
 const QUERY =
   'farmer OR crop OR agriculture OR mandi OR msp OR farming OR fertilizer OR irrigation OR tractor'
 
 export async function GET(request: Request) {
-  if (!(await verifyFirebaseUser(request))) return jsonError('Unauthorized', 401)
+  if (!(await verifyUser(request))) return jsonError('Unauthorized', 401)
 
   const apiKey = process.env.NEWSDATA_API_KEY
   if (!apiKey) return jsonError('News service is not configured (NEWSDATA_API_KEY).', 503)

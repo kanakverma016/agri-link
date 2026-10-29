@@ -2,17 +2,18 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/components/providers/auth-provider'
+import { isProfileComplete, useAuth } from '@/components/providers/auth-provider'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
   const router = useRouter()
+  const needsProfile = Boolean(user) && !isProfileComplete(profile)
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/login')
-  }, [loading, user, router])
+    if (!loading && (!user || needsProfile)) router.replace('/login')
+  }, [loading, user, needsProfile, router])
 
-  if (loading || !user) {
+  if (loading || !user || needsProfile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-200">
         <div

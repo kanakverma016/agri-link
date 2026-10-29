@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
@@ -61,12 +60,13 @@ export function NearbyScreen() {
       let district: string | null = null
       let state: string | null = null
       try {
-        const snap = await getDoc(doc(db, 'users', user.uid))
-        if (snap.exists()) {
-          const d = snap.data() as { district?: string; state?: string }
-          district = d.district ?? null
-          state = d.state ?? null
-        }
+        const { data } = await createClient()
+          .from('profiles')
+          .select('district, state')
+          .eq('id', user.uid)
+          .maybeSingle()
+        district = data?.district ?? null
+        state = data?.state ?? null
       } catch (err) {
         console.error('Error fetching user profile:', err)
       }
