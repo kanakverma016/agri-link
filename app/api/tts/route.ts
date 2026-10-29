@@ -1,3 +1,4 @@
+import { getGeminiKeys, shouldRotateKey } from '@/lib/server/gemini-keys'
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 
 const MAX_CHARS = 1000
@@ -25,32 +26,40 @@ function pcmToWav(pcm: Buffer, sampleRate: number) {
 export async function POST(request: Request) {
   if (!(await verifyUser(request))) return jsonError('Unauthorized', 401)
 
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return jsonError('Text-to-speech is not configured (GEMINI_API_KEY).', 503)
+  const keys = getGeminiKeys()
+  if (keys.length === 0) return jsonError('Text-to-speech is not configured (GEMINI_API_KEY).', 503)
 
   const body = (await request.json().catch(() => null)) as { text?: unknown } | null
   const text = typeof body?.text === 'string' ? body.text.trim() : ''
   if (!text) return jsonError('Text is required.', 400)
   if (text.length > MAX_CHARS) return jsonError(`Text must be ${MAX_CHARS} characters or fewer.`, 400)
 
-  const upstream = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
-        },
-        model: 'gemini-2.5-flash-preview-tts',
-      }),
+  const payload = JSON.stringify({
+    contents: [{ parts: [{ text }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
     },
-  )
+    model: 'gemini-2.5-flash-preview-tts',
+  })
+
+  let upstream!: Response
+  let err: { error?: { message?: string } } | null = null
+  for (const apiKey of keys) {
+    upstream = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: payload,
+      },
+    )
+    if (upstream.ok) break
+    err = (await upstream.json().catch(() => null)) as { error?: { message?: string } } | null
+    if (!shouldRotateKey(upstream.status, err?.error?.message)) break
+  }
 
   if (!upstream.ok) {
-    const err = (await upstream.json().catch(() => null)) as { error?: { message?: string } } | null
     if (upstream.status === 429) return jsonError('API rate limit exceeded. Please try again later.', 429)
     return jsonError(err?.error?.message ?? 'Text-to-speech request failed.', 502)
   }
