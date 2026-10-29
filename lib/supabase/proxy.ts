@@ -24,8 +24,8 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  // Refreshes the session token; must run directly after createServerClient.
-  await supabase.auth.getUser()
+  // getClaims verifies the JWT locally (no Supabase round trip) and still refreshes an expired session.
+  await supabase.auth.getClaims()
 
   return supabaseResponse
 }
