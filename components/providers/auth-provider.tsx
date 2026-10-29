@@ -1,7 +1,13 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { onAuthStateChanged, signOut, type User } from 'firebase/auth'
+import {
+  browserLocalPersistence,
+  onAuthStateChanged,
+  setPersistence,
+  signOut,
+  type User,
+} from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 
@@ -49,11 +55,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser)
-      await loadProfile(firebaseUser)
-      setLoading(false)
-    })
+    let unsubscribe = () => {}
+    let active = true
+
+    void setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        if (!active) return
+        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          setUser(firebaseUser)
+          await loadProfile(firebaseUser)
+          setLoading(false)
+        })
+      })
+      .catch((error) => {
+        console.error('Failed to initialize Firebase auth persistence:', error)
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+      unsubscribe()
+    }
   }, [loadProfile])
 
   const refreshProfile = useCallback(() => loadProfile(auth.currentUser), [loadProfile])
