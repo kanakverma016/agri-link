@@ -1,9 +1,9 @@
 import 'server-only'
 
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash'
+const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.5-flash'
 
 export type GeminiCandidate = {
-  content?: { parts?: { text?: string }[] }
+  content?: { parts?: { text?: string; thought?: boolean }[] }
   finishReason?: string
   groundingMetadata?: {
     groundingChunks?: { web?: { uri?: string; title?: string } }[]
@@ -50,7 +50,10 @@ export async function generateContent(body: Record<string, unknown>, maxAttempts
     if (res.ok) {
       const result = (await res.json()) as GeminiResult
       const candidate = result.candidates?.[0]
-      const text = candidate?.content?.parts?.[0]?.text
+      const text = candidate?.content?.parts
+        ?.filter((part) => part.text && !part.thought)
+        .map((part) => part.text)
+        .join('')
       if (!text) {
         const reason = result.promptFeedback?.blockReason
         if (reason) throw new GeminiError(`Request blocked: ${reason}`, 422)

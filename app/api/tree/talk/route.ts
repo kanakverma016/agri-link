@@ -127,7 +127,7 @@ async function askGemini(system: string, messages: ChatMessage[]) {
       generationConfig: {
         temperature: 0.6,
         maxOutputTokens: 400,
-        thinkingConfig: { thinkingBudget: 0 },
+        thinkingConfig: { thinkingLevel: 'minimal' },
       },
     },
     3,
