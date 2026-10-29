@@ -65,6 +65,49 @@ function supportedLanguage(code: unknown): string | null {
   return typeof code === 'string' && code in LANGUAGES ? code : null
 }
 
+async function transcribeWithGemini(file: File) {
+  const mimeType = (file.type || 'audio/webm').split(';')[0] || 'audio/webm'
+  const data = Buffer.from(await file.arrayBuffer()).toString('base64')
+  const codes = Object.keys(LANGUAGES).join(', ')
+
+  const { text } = await generateContent(
+    {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Transcribe the speech in this audio exactly as spoken, in its original language and script (Hindi in Devanagari, English in Latin). Do not translate or answer it. Respond with JSON: {"transcript": string, "language_code": string} where language_code is one of: ${codes}. If there is no clear human speech, use an empty transcript.`,
+            },
+            { inlineData: { mimeType, data } },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 400,
+        responseMimeType: 'application/json',
+        thinkingConfig: { thinkingLevel: 'minimal' },
+      },
+    },
+    2,
+  )
+
+  const parsed = JSON.parse(text) as { transcript?: string; language_code?: string }
+  return { transcript: (parsed.transcript ?? '').trim(), language: parsed.language_code ?? null }
+}
+
+async function transcribeAudio(file: File, sarvamKey: string | undefined) {
+  try {
+    return await transcribeWithGemini(file)
+  } catch (error) {
+    if (error instanceof GeminiError && error.status === 404) return { transcript: '', language: null }
+    console.error('[tree/talk] gemini stt failed', error instanceof Error ? error.message : error)
+    if (!sarvamKey) throw error
+    return transcribe(file, sarvamKey)
+  }
+}
+
 async function transcribe(file: File, apiKey: string) {
   const body = new FormData()
   body.append('file', file, file.name || 'speech.webm')
@@ -166,7 +209,6 @@ export async function POST(request: Request) {
   if (!userId) return jsonError('Unauthorized', 401)
 
   const apiKey = process.env.SARVAM_API_KEY
-  if (!apiKey) return jsonError('Voice service is not configured.', 503)
   if (rateLimited(userId)) return jsonError('Too many requests. Please wait a moment.', 429)
 
   const form = await request.formData().catch(() => null)
@@ -185,7 +227,7 @@ export async function POST(request: Request) {
     if (!greet) {
       if (audio instanceof File) {
         if (audio.size > MAX_AUDIO_BYTES) return jsonError('Recording is too long.', 413)
-        const stt = await transcribe(audio, apiKey)
+        const stt = await transcribeAudio(audio, apiKey)
         transcript = stt.transcript
         language = supportedLanguage(stt.language) ?? preferred
       } else if (typeof typed === 'string') {
@@ -211,7 +253,7 @@ export async function POST(request: Request) {
     const reply = cleanForSpeech(text)
     if (!reply) return jsonError('The tree could not think of a reply.', 502)
 
-    const audioBase64 = await speak(reply, language, apiKey).catch(() => null)
+    const audioBase64 = apiKey ? await speak(reply, language, apiKey).catch(() => null) : null
 
     return Response.json({
       transcript,
