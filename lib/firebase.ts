@@ -6,10 +6,22 @@ import { getStorage, type FirebaseStorage } from 'firebase/storage'
 // The Firebase web config is public by design (access is enforced by
 // Firebase Security Rules). These defaults match the Agri Link web app;
 // environment variables can still override them per deployment.
+const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim() ?? ''
+
+export const isFirebaseConfigured = firebaseApiKey.length > 0
+
+if (!isFirebaseConfigured) {
+  console.warn(
+    'NEXT_PUBLIC_FIREBASE_API_KEY is not set. Firebase sign-in and data requests will fail until it is configured.',
+  )
+}
+
 const firebaseConfig = {
   // Firebase Web API keys are safe to expose in the browser, but the client
   // must use the key for the same Firebase project as the rest of this config.
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? '',
+  // getAuth() throws synchronously on an empty key, which would crash the whole
+  // app at import time, so a placeholder keeps the UI rendering until it's set.
+  apiKey: isFirebaseConfigured ? firebaseApiKey : 'missing-firebase-api-key',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? 'agri-link-157cf.firebaseapp.com',
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'agri-link-157cf',
   storageBucket:
