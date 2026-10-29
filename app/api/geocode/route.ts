@@ -2,7 +2,8 @@ import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 
 export async function GET(request: Request) {
   if (!(await verifyUser(request))) return jsonError('Unauthorized', 401)
-  const apiKey = process.env.GOOGLE_MAPS_SERVER_API_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const apiKey =
+    process.env.GCP_API_KEY_2 ?? process.env.GOOGLE_MAPS_SERVER_API_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
   if (!apiKey) return jsonError('Geocoding is not configured.', 503)
 
   const address = new URL(request.url).searchParams.get('address')?.trim().slice(0, 160)

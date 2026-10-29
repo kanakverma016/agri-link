@@ -1,7 +1,7 @@
 import 'server-only'
 import { getGeminiKeys, shouldRotateKey } from '@/lib/server/gemini-keys'
 
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-flash-latest'
+const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite'
 
 export type GeminiCandidate = {
   content?: { parts?: { text?: string; thought?: boolean }[] }
@@ -26,12 +26,18 @@ export class GeminiError extends Error {
   }
 }
 
-/** Tried in order when the preferred model is overloaded (503/429) or unavailable (404). */
-const MODEL_CHAIN = Array.from(
-  new Set([MODEL, 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite']),
-)
+/**
+ * Tried in order when the preferred model is overloaded (503/429) or unavailable (404).
+ * The 2.5 family is closed to new users, so it is intentionally not listed.
+ */
+const MODEL_CHAIN = Array.from(new Set([MODEL, 'gemini-3.5-flash', 'gemini-flash-lite-latest']))
 
-const REQUEST_TIMEOUT_MS = 12_000
+const REQUEST_TIMEOUT_MS = 25_000
+
+/** Keys Google rejected (suspended/revoked), skipped across requests for a while. */
+const DEAD_KEY_TTL_MS = 10 * 60_000
+const deadKeyUntil = new Map<string, number>()
+const isDeadKey = (key: string) => (deadKeyUntil.get(key) ?? 0) > Date.now()
 
 /**
  * Calls Gemini generateContent. Walks every key for a model before moving to the next model,
@@ -41,7 +47,8 @@ export async function generateContent(body: Record<string, unknown>, maxAttempts
   const keys = getGeminiKeys()
   if (keys.length === 0) throw new GeminiError('Mandi data service is not configured (GEMINI_API_KEY).', 503)
 
-  const deadKeys = new Set<string>()
+  const deadKeys = new Set<string>(keys.filter(isDeadKey))
+  if (deadKeys.size === keys.length) deadKeys.clear()
   let lastError = new GeminiError('API call failed after multiple attempts.', 502)
 
   for (const model of MODEL_CHAIN) {
@@ -53,9 +60,13 @@ export async function generateContent(body: Record<string, unknown>, maxAttempts
       for (const key of liveKeys) {
         const outcome = await callModel(model, key, body)
         if (outcome.ok) return outcome.value
-        lastError = outcome.error
+        // A retired-model 404 must not mask a more useful earlier failure (busy, timeout).
+        if (outcome.kind !== 'missing-model' || lastError.status === 502) lastError = outcome.error
         if (outcome.error.status === 422) throw outcome.error
-        if (outcome.kind === 'dead-key') deadKeys.add(key)
+        if (outcome.kind === 'dead-key') {
+          deadKeys.add(key)
+          deadKeyUntil.set(key, Date.now() + DEAD_KEY_TTL_MS)
+        }
         if (outcome.kind === 'missing-model') {
           modelUnavailable = true
           break
