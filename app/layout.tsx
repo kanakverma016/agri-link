@@ -1,15 +1,14 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Nunito } from 'next/font/google'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import '@phosphor-icons/web/regular'
 import '@phosphor-icons/web/fill'
-import '@phosphor-icons/web/bold'
 import './globals.css'
 
-const inter = Inter({
+const nunito = Nunito({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-inter',
+  weight: ['400', '600', '700', '800'],
+  variable: '--font-sans',
   display: 'swap',
 })
 
@@ -26,13 +25,13 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#16a34a',
+  themeColor: '#15803d',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} bg-gray-200`}>
-      <body className="bg-gray-200 font-sans antialiased">
+    <html lang="en" className={`${nunito.variable} bg-green-50`}>
+      <body className="font-sans antialiased">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

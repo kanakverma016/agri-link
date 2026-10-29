@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useLiveQuery } from '@/lib/use-live-query'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -12,17 +13,20 @@ import { BottomNav } from '@/components/bottom-nav'
 import { AlertModal, useAlert } from '@/components/ui/alert-modal'
 import { PostCard } from '@/components/home/post-card'
 import { KisanTorchAd, PmKisanAd } from '@/components/home/ad-cards'
-import { CreatePostPage } from '@/components/home/create-post-page'
-import { NotificationsPage } from '@/components/home/notifications-page'
-import { WeatherPanel } from '@/components/home/weather-panel'
-import { ChatListPage } from '@/components/home/chat-list-page'
-import { NewChatPage } from '@/components/home/new-chat-page'
-import { ChatRoomPage } from '@/components/home/chat-room-page'
+const CreatePostPage = dynamic(() => import('@/components/home/create-post-page').then((m) => m.CreatePostPage))
+const NotificationsPage = dynamic(() => import('@/components/home/notifications-page').then((m) => m.NotificationsPage))
+const WeatherPanel = dynamic(() => import('@/components/home/weather-panel').then((m) => m.WeatherPanel))
+const ChatListPage = dynamic(() => import('@/components/home/chat-list-page').then((m) => m.ChatListPage))
+const NewChatPage = dynamic(() => import('@/components/home/new-chat-page').then((m) => m.NewChatPage))
+const ChatRoomPage = dynamic(() => import('@/components/home/chat-room-page').then((m) => m.ChatRoomPage))
 
 const QUICK_LINKS = [
-  { href: '/news', icon: 'ph-newspaper', label: 'Daily News' },
-  { href: '/insurance', icon: 'ph-shield', label: 'Insurance' },
-  { href: '/gov-scheme', icon: 'ph-bank', label: 'Gov. Schemes' },
+  { href: '/mandi', icon: 'ph-chart-line-up', label: 'Mandi Prices', tone: 'bg-green-100 text-green-800' },
+  { href: '/b2b-marketplace', icon: 'ph-handshake', label: 'Marketplace', tone: 'bg-amber-100 text-amber-800' },
+  { href: '/news', icon: 'ph-newspaper', label: 'Daily News', tone: 'bg-sky-100 text-sky-800' },
+  { href: '/insurance', icon: 'ph-shield-check', label: 'Insurance', tone: 'bg-green-100 text-green-800' },
+  { href: '/gov-scheme', icon: 'ph-bank', label: 'Gov. Schemes', tone: 'bg-amber-100 text-amber-800' },
+  { href: '/nearby-locator', icon: 'ph-map-pin-area', label: 'Nearby', tone: 'bg-sky-100 text-sky-800' },
 ]
 
 export function HomeScreen() {
@@ -33,9 +37,9 @@ export function HomeScreen() {
     enabled: Boolean(user),
     orderBy: 'createdAt',
     ascending: false,
+    limit: 40,
   })
   const [search, setSearch] = useState('')
-  const [headerHidden, setHeaderHidden] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showWeather, setShowWeather] = useState(false)
@@ -43,7 +47,6 @@ export function HomeScreen() {
   const [showNewChat, setShowNewChat] = useState(false)
   const [activeChat, setActiveChat] = useState<ChatDetails | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const lastScrollY = useRef(0)
 
   // Open a chat directly when redirected here with ?openChat=true&chatId=...
   useEffect(() => {
@@ -68,12 +71,6 @@ export function HomeScreen() {
         p.tags?.some((tag) => tag.toLowerCase().includes(term)),
     )
   }, [posts, search])
-
-  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
-    const y = e.currentTarget.scrollTop
-    setHeaderHidden(y > lastScrollY.current && y > 50)
-    lastScrollY.current = y
-  }
 
   function handleWeather() {
     if (!profile) {
@@ -101,94 +98,94 @@ export function HomeScreen() {
 
   return (
     <MobileFrame>
-      <nav className="z-20 w-full flex-shrink-0 bg-white shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-green-700">Agri-Link</h1>
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={handleWeather}
-              aria-label="Weather and advisory"
-              className="rounded-full p-2 transition-colors hover:bg-gray-100"
-            >
-              <i className="ph ph-cloud-sun text-2xl text-gray-600" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowNotifications(true)}
-              aria-label="Notifications"
-              className="rounded-full p-2 transition-colors hover:bg-gray-100"
-            >
-              <i className="ph ph-bell text-2xl text-gray-600" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowMessenger(true)}
-              aria-label="Messenger"
-              className="rounded-full p-2 transition-colors hover:bg-gray-100"
-            >
-              <i className="ph ph-messenger-logo text-2xl text-gray-600" aria-hidden="true" />
-            </button>
+      <header className="z-20 flex-shrink-0 rounded-b-[2rem] bg-gradient-to-br from-green-700 to-green-900 px-5 pb-5 pt-5 text-white shadow-lg">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 animate-fade-up">
+            <p className="text-sm font-semibold text-green-100">Namaste</p>
+            <h1 className="truncate text-2xl font-extrabold">
+              {profile?.name?.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Kisan'}
+            </h1>
+            {profile?.district && (
+              <p className="mt-0.5 flex items-center gap-1 truncate text-xs font-semibold text-green-100">
+                <i className="ph-fill ph-map-pin" aria-hidden="true" />
+                {profile.district}, {profile.state}
+              </p>
+            )}
           </div>
-        </div>
-      </nav>
-
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-grow overflow-y-auto pb-20">
-        <div
-          className={cn(
-            'sticky top-0 z-10 bg-white transition-transform duration-300',
-            headerHidden && '-translate-y-full',
-          )}
-        >
-          <div className="border-t border-gray-200 p-4">
-            <div className="relative">
-              <label htmlFor="search-bar" className="sr-only">
-                Search posts
-              </label>
-              <input
-                type="search"
-                id="search-bar"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search posts by tags or caption..."
-                className="w-full rounded-full border border-gray-300 bg-gray-100 p-2 pl-10 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <i
-                className="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                aria-hidden="true"
-              />
-            </div>
-          </div>
-          <div className="p-4 pt-0">
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="flex w-full items-center rounded-lg bg-white p-3 text-left shadow-sm"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={profilePic} alt="" className="mr-3 h-8 w-8 rounded-full object-cover" />
-              <span className="flex-grow text-gray-500">Click to create post</span>
-              <i className="ph ph-pencil-simple text-xl text-gray-500" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-
-        <div className="border-b border-gray-200 px-4 pb-4">
-          <div className="flex items-center justify-around text-center">
-            {QUICK_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex w-1/3 flex-col items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100"
+          <div className="flex items-center gap-2">
+            {[
+              { label: 'Weather and advisory', icon: 'ph-cloud-sun', onClick: handleWeather },
+              { label: 'Notifications', icon: 'ph-bell', onClick: () => setShowNotifications(true) },
+              { label: 'Messenger', icon: 'ph-chat-circle-dots', onClick: () => setShowMessenger(true) },
+            ].map((b) => (
+              <button
+                key={b.label}
+                type="button"
+                onClick={b.onClick}
+                aria-label={b.label}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 hover:bg-white/25"
               >
-                <i className={`ph ${link.icon} text-3xl text-gray-600`} aria-hidden="true" />
-                <span className="mt-1 text-xs font-medium text-gray-700">{link.label}</span>
-              </Link>
+                <i className={`ph ${b.icon} text-2xl`} aria-hidden="true" />
+              </button>
             ))}
           </div>
         </div>
+      </header>
 
-        <main className="px-4">
+      <div ref={scrollRef} className="flex-grow overflow-y-auto pb-28">
+        <div className="px-4 pt-4">
+          <div className="relative">
+            <label htmlFor="search-bar" className="sr-only">
+              Search posts
+            </label>
+            <input
+              type="search"
+              id="search-bar"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search posts, crops, tags..."
+              className="w-full rounded-full border border-green-100 bg-white py-3 pl-11 pr-4 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+            />
+            <i
+              className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-xl text-green-700"
+              aria-hidden="true"
+            />
+          </div>
+        </div>
+
+        <section aria-label="Quick actions" className="grid grid-cols-3 gap-3 px-4 pt-4">
+          {QUICK_LINKS.map((link, i) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              prefetch
+              style={{ animationDelay: `${i * 50}ms` }}
+              className="flex animate-fade-up flex-col items-center gap-2 rounded-2xl bg-white p-3 text-center shadow-sm ring-1 ring-green-100 hover:shadow-md"
+            >
+              <span className={cn('flex h-12 w-12 items-center justify-center rounded-2xl', link.tone)}>
+                <i className={`ph-fill ${link.icon} text-2xl`} aria-hidden="true" />
+              </span>
+              <span className="text-xs font-bold leading-tight text-stone-700">{link.label}</span>
+            </Link>
+          ))}
+        </section>
+
+        <div className="px-4 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-green-100"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={profilePic} alt="" className="h-10 w-10 rounded-full object-cover" />
+            <span className="flex-grow font-semibold text-stone-500">Share with farmers...</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-700 text-white">
+              <i className="ph-fill ph-plus" aria-hidden="true" />
+            </span>
+          </button>
+        </div>
+
+        <main className="px-4 pt-2">
           {filteredPosts.map((post, index) => (
             <div key={post.id}>
               <PostCard post={post} currentUid={user!.uid} />
