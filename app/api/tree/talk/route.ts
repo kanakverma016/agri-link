@@ -1,4 +1,4 @@
-import { generateText } from 'ai'
+import { GeminiError, generateContent } from '@/lib/server/gemini'
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 import { loadFarmerContext } from '@/lib/server/farmer-context'
 
@@ -107,51 +107,32 @@ async function speak(text: string, language: string, apiKey: string) {
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
-function toBedrockMessages(messages: ChatMessage[]) {
-  const merged: { role: 'user' | 'assistant'; content: { text: string }[] }[] = []
+function toGeminiContents(messages: ChatMessage[]) {
+  const merged: { role: 'user' | 'model'; parts: { text: string }[] }[] = []
   for (const message of messages) {
+    const role = message.role === 'assistant' ? 'model' : 'user'
     const last = merged[merged.length - 1]
-    if (last && last.role === message.role) last.content[0].text += `\n${message.content}`
-    else merged.push({ role: message.role, content: [{ text: message.content }] })
+    if (last && last.role === role) last.parts[0].text += `\n${message.content}`
+    else merged.push({ role, parts: [{ text: message.content }] })
   }
   while (merged.length > 0 && merged[0].role !== 'user') merged.shift()
   return merged
 }
 
-async function askBedrock(system: string, messages: ChatMessage[]): Promise<string | null> {
-  const token = process.env.AWS_BEARER_TOKEN_BEDROCK
-  if (!token) return null
-
-  const region = process.env.AWS_REGION || 'us-east-1'
-  const base = process.env.BEDROCK_MODEL_ID || 'amazon.nova-lite-v1:0'
-  const geo = region.startsWith('ap-') ? 'apac' : region.startsWith('eu-') ? 'eu' : 'us'
-  const candidates = base.includes('.nova-') && !/^(us|eu|apac|global)\./.test(base) ? [base, `${geo}.${base}`] : [base]
-
-  const body = JSON.stringify({
-    system: [{ text: system }],
-    messages: toBedrockMessages(messages),
-    inferenceConfig: { maxTokens: 400, temperature: 0.6 },
-  })
-
-  for (const modelId of candidates) {
-    const res = await fetch(
-      `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(modelId)}/converse`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body,
-        signal: AbortSignal.timeout(25_000),
+async function askGemini(system: string, messages: ChatMessage[]) {
+  const { text } = await generateContent(
+    {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: toGeminiContents(messages),
+      generationConfig: {
+        temperature: 0.6,
+        maxOutputTokens: 400,
+        thinkingConfig: { thinkingBudget: 0 },
       },
-    )
-    if (!res.ok) {
-      console.error('[tree/talk] bedrock', modelId, res.status, (await res.text()).slice(0, 200))
-      continue
-    }
-    const data = (await res.json()) as { output?: { message?: { content?: { text?: string }[] } } }
-    const text = data.output?.message?.content?.map((part) => part.text ?? '').join(' ').trim()
-    if (text) return text
-  }
-  return null
+    },
+    3,
+  )
+  return text
 }
 
 function cleanForSpeech(text: string) {
@@ -225,19 +206,7 @@ export async function POST(request: Request) {
       { role: 'user', content: userMessage },
     ]
 
-    let text = await askBedrock(system, messages).catch((error) => {
-      console.error('[tree/talk] bedrock failed', error instanceof Error ? error.message : error)
-      return null
-    })
-    if (!text) {
-      const fallback = await generateText({
-        model: 'google/gemini-3-flash',
-        system,
-        messages,
-        maxOutputTokens: 900,
-      })
-      text = fallback.text
-    }
+    const text = await askGemini(system, messages)
 
     const reply = cleanForSpeech(text)
     if (!reply) return jsonError('The tree could not think of a reply.', 502)
@@ -254,6 +223,12 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('[tree/talk] failed', error instanceof Error ? error.message : error)
+    if (error instanceof GeminiError && error.status === 503) {
+      return jsonError('The tree brain (Gemini) is not configured yet.', 503)
+    }
+    if (error instanceof GeminiError && error.status === 429) {
+      return jsonError('The tree is a bit busy. Please try again in a moment.', 429)
+    }
     return jsonError('Krishi Dost could not answer right now. Please try again.', 502)
   }
 }
