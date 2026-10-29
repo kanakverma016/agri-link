@@ -2,6 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // GCP_API_KEY is injected by the project environment. Expose it under the
+  // public Firebase name because Firebase Auth runs in the browser.
+  env: {
+    NEXT_PUBLIC_FIREBASE_API_KEY:
+      process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? process.env.GCP_API_KEY,
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
