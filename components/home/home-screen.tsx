@@ -13,6 +13,7 @@ import { BottomNav } from '@/components/bottom-nav'
 import { useNotifications } from '@/components/providers/notification-provider'
 import { AlertModal, useAlert } from '@/components/ui/alert-modal'
 import { PostCard } from '@/components/home/post-card'
+import { KrishiAssistant } from '@/components/assistant/krishi-assistant'
 import { KisanTorchAd, PmKisanAd } from '@/components/home/ad-cards'
 const CreatePostPage = dynamic(() => import('@/components/home/create-post-page').then((m) => m.CreatePostPage))
 const NotificationsPage = dynamic(() => import('@/components/home/notifications-page').then((m) => m.NotificationsPage))
@@ -220,6 +221,9 @@ export function HomeScreen() {
       </div>
 
       <BottomNav active="home" onHomeClick={handleHome} />
+      <KrishiAssistant
+        hidden={showCreate || showNotifications || showWeather || showMessenger || showNewChat || Boolean(activeChat)}
+      />
 
       {showCreate && <CreatePostPage onClose={() => setShowCreate(false)} showAlert={showAlert} />}
       {showNotifications && <NotificationsPage onBack={() => setShowNotifications(false)} onOpenChat={openChat} />}
