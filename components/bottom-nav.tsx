@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export type NavKey = 'home' | 'mandi' | 'plots' | 'questions' | 'menu'
 
@@ -21,7 +22,7 @@ export function BottomNav({
   return (
     <nav
       aria-label="Main"
-      className="absolute inset-x-3 bottom-3 z-10 flex items-center justify-around rounded-3xl border border-green-100 bg-white/95 p-1.5 shadow-xl shadow-green-900/15 backdrop-blur"
+      className="neu absolute inset-x-2 bottom-3 z-10 flex items-center justify-between gap-0.5 rounded-3xl p-1.5 md:inset-x-auto md:left-1/2 md:w-[34rem] md:-translate-x-1/2"
     >
       {ITEMS.map((item) => {
         const isActive = item.key === active
@@ -33,10 +34,10 @@ export function BottomNav({
             onClick={item.key === 'home' && isActive ? onHomeClick : undefined}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'flex min-w-14 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5',
+              'flex min-w-12 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5',
               isActive
-                ? 'bg-green-700 text-white shadow-md shadow-green-700/30'
-                : 'text-stone-500 hover:bg-green-50 hover:text-green-700',
+                ? 'bg-green-700 text-white shadow-md shadow-emerald-900/30'
+                : 'text-stone-500 hover:text-green-700',
             )}
           >
             <i
@@ -47,6 +48,7 @@ export function BottomNav({
           </Link>
         )
       })}
+      <ThemeToggle className="ml-1" />
     </nav>
   )
 }

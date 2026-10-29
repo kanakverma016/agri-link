@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Nunito } from 'next/font/google'
 import { AuthProvider } from '@/components/providers/auth-provider'
+import { PwaRegister } from '@/components/pwa'
 import '@phosphor-icons/web/regular'
 import '@phosphor-icons/web/fill'
 import './globals.css'
@@ -20,19 +21,29 @@ export const metadata: Metadata = {
   description:
     'SmartKrishi (Agri-Link) connects farmers with live mandi prices, a B2B marketplace, logistics, crop plots, government schemes, insurance and a community feed.',
   applicationName: 'SmartKrishi',
+  appleWebApp: { capable: true, title: 'SmartKrishi', statusBarStyle: 'black-translucent' },
+  formatDetection: { telephone: false },
+  icons: { icon: '/icons/192', apple: '/icons/180' },
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#15803d',
+  viewportFit: 'cover',
+  themeColor: '#047857',
 }
+
+const themeInit = `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');var m=document.querySelector('meta[name="theme-color"]');m&&m.setAttribute('content','#0b1512')}}catch(e){}`
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${nunito.variable} bg-green-50`}>
+    <html lang="en" suppressHydrationWarning className={`${nunito.variable} bg-[#ecf4f0] dark:bg-[#0b1512]`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+      </head>
       <body className="font-sans antialiased">
         <AuthProvider>{children}</AuthProvider>
+        <PwaRegister />
       </body>
     </html>
   )

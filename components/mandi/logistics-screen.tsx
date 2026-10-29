@@ -113,7 +113,7 @@ export function LogisticsScreen() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-4 rounded-xl bg-white p-4 shadow-sm">
+            <div className="space-y-4 neu rounded-2xl p-4">
               <div>
                 <label htmlFor="serviceType" className="mb-1 block text-sm font-medium text-gray-700">
                   Service Type

@@ -117,7 +117,7 @@ export function LivePrices({
 
   return (
     <section className="space-y-4" aria-label="Live mandi prices">
-      <div className="rounded-xl bg-white p-4 shadow-sm">
+      <div className="neu rounded-2xl p-4">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">Live Mandi Prices</h2>
           <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">Live</span>
@@ -168,7 +168,7 @@ export function LivePrices({
         </form>
       </div>
 
-      <div className="rounded-xl bg-white p-4 shadow-sm">
+      <div className="neu rounded-2xl p-4">
         <h3 className="text-md mb-3 font-semibold text-gray-700">Popular Crops</h3>
         <div className="grid grid-cols-3 gap-3">
           {COMMON_CROPS.map((c) => (
@@ -192,7 +192,7 @@ export function LivePrices({
 
       {crop && (
         <>
-          <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="neu rounded-2xl p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-md font-semibold text-gray-800">
                 Today&apos;s Prices for <span className="text-green-700">{crop}</span>:
@@ -288,7 +288,7 @@ export function LivePrices({
           </div>
 
           {chartMandi && (
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="neu rounded-2xl p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-md font-semibold text-gray-800">Price Trend ({chartMandi}):</h3>
                 <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800">History</span>

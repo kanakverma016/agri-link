@@ -98,7 +98,7 @@ export function HomeScreen() {
 
   return (
     <MobileFrame>
-      <header className="z-20 flex-shrink-0 rounded-b-[2rem] bg-gradient-to-br from-green-700 to-green-900 px-5 pb-5 pt-5 text-white shadow-lg">
+      <header className="z-20 flex-shrink-0 rounded-b-[2rem] bg-gradient-to-br from-emerald-700 via-teal-700 to-teal-900 px-5 pb-5 pt-5 text-white shadow-lg">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 animate-fade-up">
             <p className="text-sm font-semibold text-green-100">Namaste</p>
@@ -153,7 +153,7 @@ export function HomeScreen() {
           </div>
         </div>
 
-        <section aria-label="Quick actions" className="grid grid-cols-3 gap-3 px-4 pt-4">
+        <section aria-label="Quick actions" className="grid grid-cols-3 gap-3 px-4 pt-4 md:grid-cols-6 md:px-6">
           {QUICK_LINKS.map((link, i) => (
             <Link
               key={link.href}

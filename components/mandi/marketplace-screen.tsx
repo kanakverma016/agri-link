@@ -161,7 +161,7 @@ export function MarketplaceScreen() {
           ) : (
             <ul className="space-y-3">
               {filtered.map((l) => (
-                <li key={l.id} className="overflow-hidden rounded-xl bg-white shadow-sm">
+                <li key={l.id} className="neu overflow-hidden rounded-2xl">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={l.imageUrl || NO_IMAGE}
