@@ -105,6 +105,55 @@ async function speak(text: string, language: string, apiKey: string) {
   return null
 }
 
+type ChatMessage = { role: 'user' | 'assistant'; content: string }
+
+function toBedrockMessages(messages: ChatMessage[]) {
+  const merged: { role: 'user' | 'assistant'; content: { text: string }[] }[] = []
+  for (const message of messages) {
+    const last = merged[merged.length - 1]
+    if (last && last.role === message.role) last.content[0].text += `\n${message.content}`
+    else merged.push({ role: message.role, content: [{ text: message.content }] })
+  }
+  while (merged.length > 0 && merged[0].role !== 'user') merged.shift()
+  return merged
+}
+
+async function askBedrock(system: string, messages: ChatMessage[]): Promise<string | null> {
+  const token = process.env.AWS_BEARER_TOKEN_BEDROCK
+  if (!token) return null
+
+  const region = process.env.AWS_REGION || 'us-east-1'
+  const base = process.env.BEDROCK_MODEL_ID || 'amazon.nova-lite-v1:0'
+  const geo = region.startsWith('ap-') ? 'apac' : region.startsWith('eu-') ? 'eu' : 'us'
+  const candidates = base.includes('.nova-') && !/^(us|eu|apac|global)\./.test(base) ? [base, `${geo}.${base}`] : [base]
+
+  const body = JSON.stringify({
+    system: [{ text: system }],
+    messages: toBedrockMessages(messages),
+    inferenceConfig: { maxTokens: 400, temperature: 0.6 },
+  })
+
+  for (const modelId of candidates) {
+    const res = await fetch(
+      `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(modelId)}/converse`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body,
+        signal: AbortSignal.timeout(25_000),
+      },
+    )
+    if (!res.ok) {
+      console.error('[tree/talk] bedrock', modelId, res.status, (await res.text()).slice(0, 200))
+      continue
+    }
+    const data = (await res.json()) as { output?: { message?: { content?: { text?: string }[] } } }
+    const text = data.output?.message?.content?.map((part) => part.text ?? '').join(' ').trim()
+    if (text) return text
+  }
+  return null
+}
+
 function cleanForSpeech(text: string) {
   return text
     .replace(/[*_#`>~|]/g, '')
@@ -170,15 +219,25 @@ export async function POST(request: Request) {
       ? 'The farmer has just opened the app and woken you up. Greet them warmly by name, then in one short sentence mention something useful from their data right now (crop age, a recent action or expense, or a gentle nudge for what to do next). If they have no plots, welcome them and suggest adding their first plot.'
       : transcript
 
-    const { text } = await generateText({
-      model: 'google/gemini-3-flash',
-      system: buildSystemPrompt(context, language),
-      messages: [
-        ...history.map((turn) => ({ role: turn.role, content: turn.text })),
-        { role: 'user' as const, content: userMessage },
-      ],
-      maxOutputTokens: 900,
+    const system = buildSystemPrompt(context, language)
+    const messages: ChatMessage[] = [
+      ...history.map((turn) => ({ role: turn.role, content: turn.text })),
+      { role: 'user', content: userMessage },
+    ]
+
+    let text = await askBedrock(system, messages).catch((error) => {
+      console.error('[tree/talk] bedrock failed', error instanceof Error ? error.message : error)
+      return null
     })
+    if (!text) {
+      const fallback = await generateText({
+        model: 'google/gemini-3-flash',
+        system,
+        messages,
+        maxOutputTokens: 900,
+      })
+      text = fallback.text
+    }
 
     const reply = cleanForSpeech(text)
     if (!reply) return jsonError('The tree could not think of a reply.', 502)

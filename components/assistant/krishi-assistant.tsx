@@ -93,7 +93,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
   // Warm the 3D model so the tree appears instantly when the assistant opens.
   useEffect(() => {
     const warm = () => void fetch(MODEL_URL).catch(() => {})
-    if ('requestIdleCallback' in window) {
+    if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(warm, { timeout: 4000 })
       return () => window.cancelIdleCallback(id)
     }
