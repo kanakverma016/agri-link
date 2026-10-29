@@ -18,12 +18,12 @@ const TITLES: Record<SectionKey, string> = {
   logistics: 'Mandi on Wheels',
 }
 
-const MENU: { key: SectionKey | 'drone'; icon: string; bg: string; fg: string; title: string; desc: string }[] = [
-  { key: 'live-prices', icon: 'ph-line-chart-up', bg: 'bg-green-100', fg: 'text-green-700', title: 'Live Mandi Prices', desc: 'Check prices by crop and location' },
-  { key: 'nearby-locator', icon: 'ph-map-pin', bg: 'bg-blue-100', fg: 'text-blue-700', title: 'Nearby Locator', desc: 'Find mandis, warehouses & cold storage' },
-  { key: 'b2b-market', icon: 'ph-handshake', bg: 'bg-yellow-100', fg: 'text-yellow-700', title: 'B2B Marketplace', desc: 'Sell directly to bulk buyers' },
-  { key: 'logistics', icon: 'ph-truck', bg: 'bg-purple-100', fg: 'text-purple-700', title: 'Mandi on Wheels', desc: 'Book trucks and tractors for transport' },
-  { key: 'drone', icon: 'ph-wind', bg: 'bg-cyan-100', fg: 'text-cyan-700', title: 'Book Drone Spray', desc: 'Schedule an aerial spray for your crops' },
+const MENU: { key: SectionKey | 'drone'; icon: string; k: [string, string]; title: string; desc: string }[] = [
+  { key: 'live-prices', icon: 'ph-line-chart-up', k: ['#34d399', '#047857'], title: 'Live Mandi Prices', desc: 'Check prices by crop and location' },
+  { key: 'nearby-locator', icon: 'ph-map-pin', k: ['#60a5fa', '#1d4ed8'], title: 'Nearby Locator', desc: 'Find mandis, warehouses & cold storage' },
+  { key: 'b2b-market', icon: 'ph-handshake', k: ['#fcd34d', '#d97706'], title: 'B2B Marketplace', desc: 'Sell directly to bulk buyers' },
+  { key: 'logistics', icon: 'ph-truck', k: ['#c4b5fd', '#6d28d9'], title: 'Mandi on Wheels', desc: 'Book trucks and tractors for transport' },
+  { key: 'drone', icon: 'ph-wind', k: ['#67e8f9', '#0e7490'], title: 'Book Drone Spray', desc: 'Schedule an aerial spray for your crops' },
 ]
 
 const NEARBY = [
@@ -39,9 +39,34 @@ const LOGISTICS = [
 ]
 
 const btnPrimary =
-  'block w-full rounded-lg bg-green-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-green-700'
+  'block w-full rounded-xl bg-green-600 px-4 py-3 text-center font-bold text-white shadow-md shadow-emerald-900/25 transition'
 const btnSecondary =
-  'flex w-full flex-col items-center rounded-lg border border-green-600 px-4 py-3 text-green-700 transition hover:bg-green-50'
+  'neu-btn flex w-full flex-col items-center rounded-xl px-4 py-3 text-green-700'
+
+function MandiLcd() {
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => {
+    setNow(new Date())
+    const id = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(id)
+  }, [])
+  const hour = now?.getHours() ?? 0
+  const open = now !== null && hour >= 6 && hour < 18
+  return (
+    <div className="lcd flex items-center justify-between rounded-2xl px-4 py-3" role="status" aria-label="Mandi status">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Mandi hours 06:00 - 18:00</p>
+        <p className="text-2xl font-bold tabular-nums">
+          {now ? now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 text-sm font-bold">
+        <span className={`h-2.5 w-2.5 rounded-full ${open ? 'animate-pulse bg-emerald-300' : 'bg-red-400'}`} />
+        {now ? (open ? 'OPEN' : 'CLOSED') : '...'}
+      </div>
+    </div>
+  )
+}
 
 export function MandiScreen() {
   const { user } = useAuth()
@@ -71,7 +96,7 @@ export function MandiScreen() {
 
   return (
     <MobileFrame>
-      <header className="z-20 w-full flex-shrink-0 bg-green-700 p-4 text-white">
+      <header className="z-20 w-full flex-shrink-0 rounded-b-[2rem] bg-green-700 p-4 pb-5 text-white shadow-lg shadow-emerald-900/20">
         <div className="flex items-center">
           {section ? (
             <button type="button" onClick={() => setSection(null)} aria-label="Back to mandi menu" className="mr-4 p-2">
@@ -89,25 +114,30 @@ export function MandiScreen() {
         </div>
       </header>
 
-      <main className="mt-4 flex-grow overflow-y-auto p-4 pb-24">
+      <main className="mt-2 flex-grow overflow-y-auto p-4 pb-28 md:px-8">
         {!section && (
           <section className="space-y-5">
-            <p className="mb-4 text-center text-gray-600">
+            <MandiLcd />
+            <p className="text-center text-sm font-semibold text-gray-600">
               Explore market prices, find buyers, and manage your farm logistics.
             </p>
-            <div className="grid grid-cols-2 gap-4">
-              {MENU.map((m) => (
+            <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-5">
+              {MENU.map((m, i) => (
                 <button
                   key={m.key}
                   type="button"
                   onClick={() => (m.key === 'drone' ? setDroneOpen(true) : setSection(m.key))}
-                  className="flex w-full flex-col items-center rounded-xl bg-white p-5 shadow-sm transition-all active:scale-95"
+                  style={{ animationDelay: `${i * 70}ms` }}
+                  className="neu flex w-full animate-fade-up flex-col items-center rounded-3xl p-5 transition-transform hover:-translate-y-1"
                 >
-                  <div className={`mb-3 rounded-lg p-3 ${m.bg}`}>
-                    <i className={`ph ${m.icon} text-3xl ${m.fg}`} aria-hidden="true" />
+                  <div
+                    style={{ '--k1': m.k[0], '--k2': m.k[1] } as React.CSSProperties}
+                    className="skeu-knob mb-3 flex h-16 w-16 items-center justify-center rounded-full"
+                  >
+                    <i className={`ph-fill ${m.icon} text-3xl text-white drop-shadow`} aria-hidden="true" />
                   </div>
-                  <h2 className="mb-1 text-lg font-semibold text-gray-800">{m.title}</h2>
-                  <p className="text-center text-xs text-gray-500">{m.desc}</p>
+                  <h2 className="mb-1 text-center text-base font-extrabold text-gray-800">{m.title}</h2>
+                  <p className="text-center text-xs font-semibold text-gray-500">{m.desc}</p>
                 </button>
               ))}
             </div>
@@ -120,7 +150,7 @@ export function MandiScreen() {
 
         {section === 'nearby-locator' && (
           <section>
-            <div className="mb-4 rounded-xl bg-white p-5 text-center shadow-sm">
+            <div className="mb-4 neu rounded-3xl p-5 text-center">
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
                 <i className="ph ph-map-pin text-3xl text-blue-500" aria-hidden="true" />
               </div>
@@ -130,11 +160,11 @@ export function MandiScreen() {
                 Enable Location
               </Link>
             </div>
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="neu rounded-3xl p-4">
               <h3 className="mb-3 font-semibold text-gray-800">Nearby Services</h3>
               <ul className="space-y-3">
                 {NEARBY.map((n) => (
-                  <li key={n.name} className="flex items-center rounded-lg border border-gray-200 p-3">
+                  <li key={n.name} className="flex items-center neu-inset rounded-2xl p-3">
                     <div className={`mr-3 rounded-lg p-2 ${n.bg}`}>
                       <i className={`ph ${n.icon} text-xl ${n.fg}`} aria-hidden="true" />
                     </div>
@@ -152,7 +182,7 @@ export function MandiScreen() {
 
         {section === 'b2b-market' && (
           <section>
-            <div className="mb-4 rounded-xl bg-white p-5 text-center shadow-sm">
+            <div className="mb-4 neu rounded-3xl p-5 text-center">
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100">
                 <i className="ph ph-handshake text-3xl text-yellow-500" aria-hidden="true" />
               </div>
@@ -172,7 +202,7 @@ export function MandiScreen() {
                 </button>
               </div>
             </div>
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="neu rounded-3xl p-4">
               <h3 className="mb-3 font-semibold text-gray-800">Recent Transactions</h3>
               <div className="py-6 text-center">
                 <i className="ph ph-shopping-cart mb-2 text-3xl text-gray-400" aria-hidden="true" />
@@ -184,7 +214,7 @@ export function MandiScreen() {
 
         {section === 'logistics' && (
           <section>
-            <div className="mb-4 rounded-xl bg-white p-6 text-center shadow-sm">
+            <div className="mb-4 neu rounded-3xl p-6 text-center">
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-purple-100">
                 <i className="ph ph-truck text-3xl text-purple-500" aria-hidden="true" />
               </div>
@@ -194,11 +224,11 @@ export function MandiScreen() {
                 <i className="ph ph-calendar-plus mr-2" aria-hidden="true" /> Book Now
               </Link>
             </div>
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="neu rounded-3xl p-4">
               <h3 className="mb-3 font-semibold text-gray-800">Available Services</h3>
               <ul className="space-y-3">
                 {LOGISTICS.map((l) => (
-                  <li key={l.name} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+                  <li key={l.name} className="flex items-center justify-between neu-inset rounded-2xl p-3">
                     <div className="flex items-center">
                       <div className={`mr-3 rounded-lg p-2 ${l.bg}`}>
                         <i className={`ph ${l.icon} ${l.fg}`} aria-hidden="true" />
