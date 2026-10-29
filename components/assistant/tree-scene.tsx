@@ -120,6 +120,57 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
       const pivot = new THREE.Group()
       scene.add(pivot)
 
+      // The model has no face baked in, so the face is built from simple meshes pinned to the front of the trunk.
+      const FACE_X = 0.07
+      const FACE_Z = 0.072
+      const face = new THREE.Group()
+      pivot.add(face)
+
+      const eyeWhiteMaterial = new THREE.MeshStandardMaterial({ color: 0xfffaf0, roughness: 0.35 })
+      const pupilMaterial = new THREE.MeshStandardMaterial({ color: 0x2a1408, roughness: 0.25 })
+      const glintMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff })
+      const eyes = [-1, 1].map((side) => {
+        const eye = new THREE.Group()
+        eye.position.set(FACE_X + side * 0.052, 0.6, FACE_Z - 0.006)
+        const white = new THREE.Mesh(new THREE.SphereGeometry(0.03, 20, 14), eyeWhiteMaterial)
+        white.scale.z = 0.55
+        const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.018, 16, 12), pupilMaterial)
+        pupil.position.set(0, -0.002, 0.012)
+        pupil.scale.z = 0.5
+        const glint = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 8, 6), glintMaterial)
+        glint.position.set(0.007, 0.008, 0.02)
+        eye.add(white, pupil, glint)
+        face.add(eye)
+        return eye
+      })
+
+      const cheekMaterial = new THREE.MeshBasicMaterial({ color: 0xff7f6e, transparent: true, opacity: 0.45, depthWrite: false })
+      ;[-1, 1].forEach((side) => {
+        const cheek = new THREE.Mesh(new THREE.CircleGeometry(0.024, 20), cheekMaterial)
+        cheek.position.set(FACE_X + side * 0.085, 0.535, FACE_Z + 0.004)
+        face.add(cheek)
+      })
+
+      const lipMaterial = new THREE.MeshBasicMaterial({ color: 0xc2453f, side: THREE.DoubleSide })
+      const mouthDarkMaterial = new THREE.MeshBasicMaterial({ color: 0x3b0d10 })
+      const tongueMaterial = new THREE.MeshBasicMaterial({ color: 0xe86c80 })
+
+      const mouth = new THREE.Group()
+      mouth.position.set(FACE_X, 0.495, FACE_Z + 0.008)
+      const mouthInner = new THREE.Mesh(new THREE.CircleGeometry(0.8, 32), mouthDarkMaterial)
+      const tongue = new THREE.Mesh(new THREE.CircleGeometry(1, 20), tongueMaterial)
+      tongue.position.z = 0.0004
+      const lips = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32), lipMaterial)
+      lips.position.z = 0.0008
+      const smile = new THREE.Mesh(
+        new THREE.RingGeometry(0.86, 1, 24, 1, Math.PI * 1.12, Math.PI * 0.76),
+        lipMaterial,
+      )
+      smile.scale.set(0.034, 0.03, 1)
+      smile.position.y = 0.012
+      mouth.add(mouthInner, tongue, lips, smile)
+      face.add(mouth)
+
       let material: InstanceType<typeof THREE.MeshStandardMaterial> | null = null
       let colorAttr: InstanceType<typeof THREE.BufferAttribute> | null = null
       let awakeColors: Float32Array | null = null
@@ -192,7 +243,9 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
       let listenLevel = 0
       let wakeBounce = 0
       let wasAwake = false
-      let spin = 0
+      let mouthOpen = 0
+      let blink = 0
+      let nextBlinkAt = 2.5
       let visible = true
       const onVisibility = () => {
         visible = !document.hidden
@@ -239,14 +292,36 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
         pivot.scale.setScalar(scale)
         pivot.position.y = Math.abs(bounce) * 0.6
 
-        spin += dt * (reduceMotion ? 0 : 0.12 + awakeLevel * 0.1)
+        // The tree stays planted facing the farmer; only a gentle sway and a small look toward the pointer remain.
         const droop = (1 - awakeLevel) * 0.09
         const lean = listenLevel * 0.06
-        pivot.rotation.set(
-          droop + lean,
-          spin * (1 - listenLevel * 0.85) + pointerX * 0.35,
-          Math.sin(t * 0.7) * 0.015 * awakeLevel + droop * 0.4,
-        )
+        const sway = reduceMotion ? 0 : Math.sin(t * 0.6) * 0.04
+        pivot.rotation.set(droop + lean, sway + pointerX * 0.08, Math.sin(t * 0.7) * 0.01 * awakeLevel + droop * 0.4)
+
+        if (t > nextBlinkAt) {
+          blink = 1
+          nextBlinkAt = t + 2.2 + Math.random() * 3
+        }
+        blink = Math.max(0, blink - dt * 7)
+        const eyeOpen = Math.max(0.08, Math.min(awakeLevel, Math.abs(blink * 2 - 1)))
+        eyes.forEach((eye) => eye.scale.set(1, eyeOpen, 1))
+
+        // Syllable-like open/close rhythm so the lips move in time with speech.
+        const syllable = Math.abs(Math.sin(t * 8.5))
+        const phrase = 0.6 + 0.4 * Math.sin(t * 2.3 + Math.sin(t * 0.9) * 2)
+        const mouthTarget = speakingRef.current ? Math.min(1, 0.12 + syllable * phrase * 0.95) : 0
+        mouthOpen = smooth(mouthOpen, mouthTarget, 20, dt)
+        const open = mouthOpen > 0.07
+        const mouthHeight = 0.008 + mouthOpen * 0.034
+        const mouthWidth = 0.032 + mouthOpen * 0.006
+        lips.visible = open
+        mouthInner.visible = open
+        tongue.visible = open
+        smile.visible = !open
+        lips.scale.set(mouthWidth, mouthHeight, 1)
+        mouthInner.scale.set(mouthWidth, mouthHeight, 1)
+        tongue.scale.set(mouthWidth * 0.5, mouthHeight * 0.38, 1)
+        tongue.position.y = -mouthHeight * 0.55
 
         rim.intensity = awakeLevel * (4 + speakLevel * 5 + listenLevel * 3)
         ;(ground.material as InstanceType<typeof THREE.MeshBasicMaterial>).opacity =
