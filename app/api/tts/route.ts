@@ -1,5 +1,6 @@
 import { getGeminiKeys, shouldRotateKey } from '@/lib/server/gemini-keys'
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
+import { detectLanguageCode, speakWithClonedVoice } from '@/lib/server/sarvam-voice'
 
 const MAX_CHARS = 1000
 
@@ -26,13 +27,20 @@ function pcmToWav(pcm: Buffer, sampleRate: number) {
 export async function POST(request: Request) {
   if (!(await verifyUser(request))) return jsonError('Unauthorized', 401)
 
-  const keys = getGeminiKeys()
-  if (keys.length === 0) return jsonError('Text-to-speech is not configured (GEMINI_API_KEY).', 503)
-
   const body = (await request.json().catch(() => null)) as { text?: unknown } | null
   const text = typeof body?.text === 'string' ? body.text.trim() : ''
   if (!text) return jsonError('Text is required.', 400)
   if (text.length > MAX_CHARS) return jsonError(`Text must be ${MAX_CHARS} characters or fewer.`, 400)
+
+  const clonedAudio = await speakWithClonedVoice(text, detectLanguageCode(text))
+  if (clonedAudio) {
+    return new Response(new Uint8Array(Buffer.from(clonedAudio, 'base64')), {
+      headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=3600' },
+    })
+  }
+
+  const keys = getGeminiKeys()
+  if (keys.length === 0) return jsonError('Text-to-speech is not configured.', 503)
 
   const payload = JSON.stringify({
     contents: [{ parts: [{ text }] }],
