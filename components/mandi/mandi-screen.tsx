@@ -18,12 +18,20 @@ const TITLES: Record<SectionKey, string> = {
   logistics: 'Mandi on Wheels',
 }
 
-const MENU: { key: SectionKey | 'drone'; icon: string; k: [string, string]; title: string; desc: string }[] = [
+type SoonKey = 'drone' | 'fertilizers'
+
+const SOON_TITLES: Record<SoonKey, string> = {
+  drone: 'Book Drone Spray',
+  fertilizers: 'Buy Fertilizers',
+}
+
+const MENU: { key: SectionKey | SoonKey; icon: string; k: [string, string]; title: string; desc: string; soon?: boolean }[] = [
   { key: 'live-prices', icon: 'ph-line-chart-up', k: ['#34d399', '#047857'], title: 'Live Mandi Prices', desc: 'Check prices by crop and location' },
   { key: 'nearby-locator', icon: 'ph-map-pin', k: ['#60a5fa', '#1d4ed8'], title: 'Nearby Locator', desc: 'Find mandis, warehouses & cold storage' },
   { key: 'b2b-market', icon: 'ph-handshake', k: ['#fcd34d', '#d97706'], title: 'B2B Marketplace', desc: 'Sell directly to bulk buyers' },
   { key: 'logistics', icon: 'ph-truck', k: ['#c4b5fd', '#6d28d9'], title: 'Mandi on Wheels', desc: 'Book trucks and tractors for transport' },
-  { key: 'drone', icon: 'ph-wind', k: ['#67e8f9', '#0e7490'], title: 'Book Drone Spray', desc: 'Schedule an aerial spray for your crops' },
+  { key: 'fertilizers', icon: 'ph-flask', k: ['#f9a8d4', '#be185d'], title: 'Buy Fertilizers', desc: 'Order seeds, fertilizers & pesticides', soon: true },
+  { key: 'drone', icon: 'ph-wind', k: ['#67e8f9', '#0e7490'], title: 'Book Drone Spray', desc: 'Schedule an aerial spray for your crops', soon: true },
 ]
 
 const NEARBY = [
@@ -43,37 +51,12 @@ const btnPrimary =
 const btnSecondary =
   'neu-btn flex w-full flex-col items-center rounded-xl px-4 py-3 text-green-700'
 
-function MandiLcd() {
-  const [now, setNow] = useState<Date | null>(null)
-  useEffect(() => {
-    setNow(new Date())
-    const id = setInterval(() => setNow(new Date()), 30000)
-    return () => clearInterval(id)
-  }, [])
-  const hour = now?.getHours() ?? 0
-  const open = now !== null && hour >= 6 && hour < 18
-  return (
-    <div className="lcd flex items-center justify-between rounded-2xl px-4 py-3" role="status" aria-label="Mandi status">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Mandi hours 06:00 - 18:00</p>
-        <p className="text-2xl font-bold tabular-nums">
-          {now ? now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 text-sm font-bold">
-        <span className={`h-2.5 w-2.5 rounded-full ${open ? 'animate-pulse bg-emerald-300' : 'bg-red-400'}`} />
-        {now ? (open ? 'OPEN' : 'CLOSED') : '...'}
-      </div>
-    </div>
-  )
-}
-
 export function MandiScreen() {
   const { user } = useAuth()
   const [section, setSection] = useState<SectionKey | null>(null)
   const [location, setLocation] = useState<Location>({ state: null, district: null })
   const [locationOpen, setLocationOpen] = useState(false)
-  const [droneOpen, setDroneOpen] = useState(false)
+  const [soonItem, setSoonItem] = useState<SoonKey | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -117,7 +100,6 @@ export function MandiScreen() {
       <main className="mt-2 flex-grow overflow-y-auto p-4 pb-28 md:px-8">
         {!section && (
           <section className="space-y-5">
-            <MandiLcd />
             <p className="text-center text-sm font-semibold text-gray-600">
               Explore market prices, find buyers, and manage your farm logistics.
             </p>
@@ -126,10 +108,15 @@ export function MandiScreen() {
                 <button
                   key={m.key}
                   type="button"
-                  onClick={() => (m.key === 'drone' ? setDroneOpen(true) : setSection(m.key))}
+                  onClick={() => (m.soon ? setSoonItem(m.key as SoonKey) : setSection(m.key as SectionKey))}
                   style={{ animationDelay: `${i * 70}ms` }}
-                  className="neu flex w-full animate-fade-up flex-col items-center rounded-3xl p-5 transition-transform hover:-translate-y-1"
+                  className="neu relative flex w-full animate-fade-up flex-col items-center rounded-3xl p-5 transition-transform hover:-translate-y-1"
                 >
+                  {m.soon && (
+                    <span className="absolute right-3 top-3 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                      Under development
+                    </span>
+                  )}
                   <div
                     style={{ '--k1': m.k[0], '--k2': m.k[1] } as React.CSSProperties}
                     className="skeu-knob mb-3 flex h-16 w-16 items-center justify-center rounded-full"
@@ -249,19 +236,19 @@ export function MandiScreen() {
 
       <BottomNav active="mandi" />
 
-      {droneOpen && (
+      {soonItem && (
         <div role="dialog" aria-modal="true" aria-labelledby="soon-title" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setDroneOpen(false)} aria-hidden="true" />
+          <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setSoonItem(null)} aria-hidden="true" />
           <div className="relative z-10 w-full max-w-xs rounded-xl bg-white p-6 shadow-xl">
             <h3 id="soon-title" className="mb-2 text-lg font-semibold text-gray-800">
-              Coming Soon
+              {SOON_TITLES[soonItem]}
             </h3>
-            <p className="mb-6 text-gray-600">This feature is under development.</p>
+            <p className="mb-6 text-gray-600">This feature is under development. Coming soon!</p>
             <div className="flex justify-end space-x-3">
-              <button type="button" onClick={() => setDroneOpen(false)} className="rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 hover:bg-gray-300">
+              <button type="button" onClick={() => setSoonItem(null)} className="rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 hover:bg-gray-300">
                 Cancel
               </button>
-              <button type="button" autoFocus onClick={() => setDroneOpen(false)} className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700">
+              <button type="button" autoFocus onClick={() => setSoonItem(null)} className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700">
                 OK
               </button>
             </div>

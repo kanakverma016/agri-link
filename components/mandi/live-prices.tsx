@@ -119,8 +119,16 @@ export function LivePrices({
     <section className="space-y-4" aria-label="Live mandi prices">
       <div className="neu rounded-2xl p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">Live Mandi Prices</h2>
-          <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">Live</span>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100">
+              <i className="ph-fill ph-chart-line-up text-xl text-green-700" aria-hidden="true" />
+            </span>
+            Live Mandi Prices
+          </h2>
+          <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">
+            <i className="ph-fill ph-broadcast" aria-hidden="true" />
+            Live
+          </span>
         </div>
         <div className="mb-4 rounded-xl bg-gray-50 p-3">
           <div className="flex items-center justify-between">
@@ -181,8 +189,8 @@ export function LivePrices({
               }}
               className="flex flex-col items-center rounded-xl border border-gray-200 bg-gray-50 p-3 transition-colors hover:bg-green-50 active:scale-95"
             >
-              <span className="mb-2 flex h-12 items-center justify-center text-3xl" aria-hidden="true">
-                {c.emoji}
+              <span className={`mb-2 flex h-12 w-12 items-center justify-center rounded-full ${c.bg}`} aria-hidden="true">
+                <i className={`ph-fill ${c.icon} text-2xl ${c.fg}`} />
               </span>
               <span className="text-center text-xs font-semibold text-gray-700">{c.name}</span>
             </button>
@@ -219,12 +227,30 @@ export function LivePrices({
                   <table className="w-full whitespace-nowrap text-left text-sm text-gray-700">
                     <thead>
                       <tr className="border-b text-xs uppercase text-gray-500">
-                        <th className="px-4 py-3">Market</th>
-                        <th className="px-2 py-3">Variety</th>
-                        <th className="px-2 py-3 text-right">Min (₹/{units})</th>
-                        <th className="px-2 py-3 text-right">Max (₹/{units})</th>
-                        <th className="px-2 py-3 text-right">Modal (₹/{units})</th>
-                        <th className="px-2 py-3">Date</th>
+                        <th className="px-4 py-3">
+                          <i className="ph ph-storefront mr-1 align-middle text-base" aria-hidden="true" />
+                          Market
+                        </th>
+                        <th className="px-2 py-3">
+                          <i className="ph ph-plant mr-1 align-middle text-base" aria-hidden="true" />
+                          Variety
+                        </th>
+                        <th className="px-2 py-3 text-right">
+                          <i className="ph ph-trend-down mr-1 align-middle text-base text-blue-600" aria-hidden="true" />
+                          Min (₹/{units})
+                        </th>
+                        <th className="px-2 py-3 text-right">
+                          <i className="ph ph-trend-up mr-1 align-middle text-base text-red-600" aria-hidden="true" />
+                          Max (₹/{units})
+                        </th>
+                        <th className="px-2 py-3 text-right">
+                          <i className="ph ph-currency-inr mr-1 align-middle text-base text-green-700" aria-hidden="true" />
+                          Modal (₹/{units})
+                        </th>
+                        <th className="px-2 py-3">
+                          <i className="ph ph-calendar-blank mr-1 align-middle text-base" aria-hidden="true" />
+                          Date
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -244,7 +270,10 @@ export function LivePrices({
                           }}
                           className={`cursor-pointer transition-colors hover:bg-green-50 ${i > 0 && rows[i - 1].market !== r.market ? 'border-t-2 border-gray-200' : ''}`}
                         >
-                          <td className="px-4 py-3 font-medium text-gray-900">{r.market}</td>
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            <i className="ph-fill ph-map-pin mr-1 align-middle text-base text-green-600" aria-hidden="true" />
+                            {r.market}
+                          </td>
                           <td className="px-2 py-3">{r.variety}</td>
                           <td className="px-2 py-3 text-right">{(r.minPrice / divisor).toFixed(2)}</td>
                           <td className="px-2 py-3 text-right">{(r.maxPrice / divisor).toFixed(2)}</td>

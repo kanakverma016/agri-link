@@ -42,6 +42,27 @@ const PHASE_LABEL: Record<Phase, string> = {
   speaking: 'बोल रहा है...',
 }
 
+type RecognitionResultLike = { isFinal: boolean; 0: { transcript: string } }
+type RecognitionLike = {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  maxAlternatives: number
+  start: () => void
+  stop: () => void
+  abort: () => void
+  onresult: ((event: { results: ArrayLike<RecognitionResultLike> }) => void) | null
+  onerror: ((event: { error: string }) => void) | null
+  onend: (() => void) | null
+}
+type RecognitionCtor = new () => RecognitionLike
+
+function getRecognitionCtor(): RecognitionCtor | null {
+  if (typeof window === 'undefined') return null
+  const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor }
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
+}
+
 function pickMimeType() {
   if (typeof MediaRecorder === 'undefined') return ''
   const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus']
@@ -76,6 +97,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
   const audioUnlockedRef = useRef(false)
   const finishPlaybackRef = useRef<(() => void) | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const recognitionRef = useRef<RecognitionLike | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -118,7 +140,32 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
 
   const stopSpeaking = useCallback(() => {
     audioRef.current?.pause()
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     finishPlaybackRef.current?.()
+  }, [])
+
+  const speakInBrowser = useCallback((text: string, lang: string) => {
+    return new Promise<void>((resolve) => {
+      if (!('speechSynthesis' in window)) return resolve()
+      const synth = window.speechSynthesis
+      synth.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = lang
+      utterance.rate = 0.95
+      const voice = synth.getVoices().find((v) => v.lang.replace('_', '-').toLowerCase() === lang.toLowerCase())
+      if (voice) utterance.voice = voice
+      let done = false
+      const finish = () => {
+        if (done) return
+        done = true
+        finishPlaybackRef.current = null
+        resolve()
+      }
+      finishPlaybackRef.current = finish
+      utterance.onend = finish
+      utterance.onerror = finish
+      synth.speak(utterance)
+    })
   }, [])
 
   const playReply = useCallback((base64: string, type: string) => {
@@ -192,10 +239,9 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
         historyRef.current = historyRef.current.slice(-8)
         setReply(data.reply)
 
-        if (data.audio) {
-          updatePhase('speaking')
-          await playReply(data.audio, data.audioType ?? 'audio/mpeg')
-        }
+        updatePhase('speaking')
+        if (data.audio) await playReply(data.audio, data.audioType ?? 'audio/mpeg')
+        else await speakInBrowser(data.reply, languageRef.current)
         if (!controller.signal.aborted && phaseRef.current !== 'listening') updatePhase('idle')
       } catch (error) {
         if (controller.signal.aborted) return
@@ -204,7 +250,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
         updatePhase('idle')
       }
     },
-    [playReply, updatePhase],
+    [playReply, speakInBrowser, updatePhase],
   )
 
   const wakeUp = useCallback(() => {
@@ -217,6 +263,12 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
   const stopListening = useCallback(
     (discard = false) => {
       discardRef.current = discard
+      const recognition = recognitionRef.current
+      if (recognition) {
+        if (discard) recognition.abort()
+        else recognition.stop()
+        return
+      }
       const recorder = recorderRef.current
       if (recorder && recorder.state !== 'inactive') recorder.stop()
       else releaseMicrophone()
@@ -224,14 +276,84 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
     [releaseMicrophone],
   )
 
+  const startBrowserListening = useCallback(
+    (Recognition: RecognitionCtor) => {
+      const recognition = new Recognition()
+      recognition.lang = languageRef.current
+      recognition.continuous = false
+      recognition.interimResults = true
+      recognition.maxAlternatives = 1
+
+      let finalText = ''
+      let interimText = ''
+      let errorCode = ''
+      discardRef.current = false
+
+      recognition.onresult = (event) => {
+        let finals = ''
+        let interims = ''
+        for (let i = 0; i < event.results.length; i++) {
+          const result = event.results[i]
+          if (result.isFinal) finals += result[0].transcript
+          else interims += result[0].transcript
+        }
+        finalText = finals
+        interimText = interims
+        setHeard((finals + interims).trim())
+      }
+      recognition.onerror = (event) => {
+        errorCode = event.error
+      }
+      recognition.onend = () => {
+        recognitionRef.current = null
+        releaseMicrophone()
+        if (discardRef.current) return
+        const text = (finalText || interimText).trim()
+        if (errorCode === 'not-allowed' || errorCode === 'service-not-allowed') {
+          setNotice('माइक की अनुमति नहीं मिली। फ़ोन की सेटिंग में माइक की अनुमति दीजिए।')
+          updatePhase('idle')
+        } else if (errorCode === 'network') {
+          setNotice('इंटरनेट नहीं चल रहा। नेटवर्क देखकर फिर से बोलिए।')
+          updatePhase('idle')
+        } else if (!text) {
+          setNotice('आवाज़ साफ़ नहीं आई। माइक दबाकर फिर से बोलिए।')
+          updatePhase('idle')
+        } else {
+          void runTurn((form) => form.append('text', text), text)
+        }
+      }
+
+      recognitionRef.current = recognition
+      try {
+        recognition.start()
+      } catch {
+        recognitionRef.current = null
+        setNotice('माइक शुरू नहीं हो पाया। फिर से कोशिश कीजिए।')
+        updatePhase('idle')
+        return
+      }
+      setHeard('')
+      updatePhase('listening')
+      monitorRef.current = window.setInterval(() => setLevel(0.25 + Math.random() * 0.6), 120)
+    },
+    [releaseMicrophone, runTurn, updatePhase],
+  )
+
   const startListening = useCallback(async () => {
+    stopSpeaking()
+    abortRef.current?.abort()
+    setNotice('')
+
+    const Recognition = getRecognitionCtor()
+    if (Recognition) {
+      startBrowserListening(Recognition)
+      return
+    }
+
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setNotice('इस फ़ोन या ब्राउज़र में माइक सपोर्ट नहीं है। नीचे दिए सवालों में से चुनिए।')
       return
     }
-    stopSpeaking()
-    abortRef.current?.abort()
-    setNotice('')
 
     let stream: MediaStream
     try {
@@ -306,7 +428,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
     } catch {
       // Without level metering the farmer simply taps the mic again to finish.
     }
-  }, [releaseMicrophone, runTurn, stopListening, stopSpeaking, updatePhase])
+  }, [releaseMicrophone, runTurn, startBrowserListening, stopListening, stopSpeaking, updatePhase])
 
   const handlePrimaryAction = useCallback(() => {
     unlockAudio()
@@ -369,6 +491,8 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
     () => () => {
       abortRef.current?.abort()
       discardRef.current = true
+      recognitionRef.current?.abort()
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel()
       if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop()
       releaseMicrophone()
       audioRef.current?.pause()

@@ -8,21 +8,21 @@ export const LOCATION_DATA: Record<string, string[]> = {
 }
 
 export const COMMON_CROPS = [
-  { name: 'Potato', emoji: '🥔' },
-  { name: 'Onion', emoji: '🧅' },
-  { name: 'Tomato', emoji: '🍅' },
-  { name: 'Wheat', emoji: '🌾' },
-  { name: 'Paddy', emoji: '🍚' },
-  { name: 'Mustard', emoji: '🌼' },
-  { name: 'Sugarcane', emoji: '🎋' },
-  { name: 'Maize', emoji: '🌽' },
-  { name: 'Brinjal', emoji: '🍆' },
-  { name: 'Cauliflower', emoji: '🥦' },
-  { name: 'Cabbage', emoji: '🥬' },
-  { name: 'Carrot', emoji: '🥕' },
-  { name: 'Mango', emoji: '🥭' },
-  { name: 'Apple', emoji: '🍎' },
-  { name: 'Banana', emoji: '🍌' },
+  { name: 'Potato', icon: 'ph-plant', bg: 'bg-amber-100', fg: 'text-amber-700' },
+  { name: 'Onion', icon: 'ph-flower-lotus', bg: 'bg-purple-100', fg: 'text-purple-600' },
+  { name: 'Tomato', icon: 'ph-orange', bg: 'bg-red-100', fg: 'text-red-600' },
+  { name: 'Wheat', icon: 'ph-grains', bg: 'bg-yellow-100', fg: 'text-yellow-700' },
+  { name: 'Paddy', icon: 'ph-bowl-food', bg: 'bg-lime-100', fg: 'text-lime-700' },
+  { name: 'Mustard', icon: 'ph-flower', bg: 'bg-yellow-100', fg: 'text-yellow-600' },
+  { name: 'Sugarcane', icon: 'ph-tree', bg: 'bg-emerald-100', fg: 'text-emerald-700' },
+  { name: 'Maize', icon: 'ph-grains', bg: 'bg-orange-100', fg: 'text-orange-600' },
+  { name: 'Brinjal', icon: 'ph-plant', bg: 'bg-violet-100', fg: 'text-violet-700' },
+  { name: 'Cauliflower', icon: 'ph-flower-lotus', bg: 'bg-stone-100', fg: 'text-stone-600' },
+  { name: 'Cabbage', icon: 'ph-leaf', bg: 'bg-green-100', fg: 'text-green-700' },
+  { name: 'Carrot', icon: 'ph-carrot', bg: 'bg-orange-100', fg: 'text-orange-600' },
+  { name: 'Mango', icon: 'ph-orange-slice', bg: 'bg-amber-100', fg: 'text-amber-600' },
+  { name: 'Apple', icon: 'ph-cherries', bg: 'bg-rose-100', fg: 'text-rose-600' },
+  { name: 'Banana', icon: 'ph-moon', bg: 'bg-yellow-100', fg: 'text-yellow-600' },
 ]
 
 export const CROP_TRANSLATIONS: Record<string, string> = {
