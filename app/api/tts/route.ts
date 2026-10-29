@@ -1,6 +1,6 @@
 import { getGeminiKeys, shouldRotateKey } from '@/lib/server/gemini-keys'
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
-import { detectLanguageCode, speakWithClonedVoice } from '@/lib/server/sarvam-voice'
+import { detectLanguageCode, speakWithAgentVoice } from '@/lib/server/sarvam-voice'
 
 const MAX_CHARS = 1000
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   if (!text) return jsonError('Text is required.', 400)
   if (text.length > MAX_CHARS) return jsonError(`Text must be ${MAX_CHARS} characters or fewer.`, 400)
 
-  const clonedAudio = await speakWithClonedVoice(text, detectLanguageCode(text))
+  const clonedAudio = await speakWithAgentVoice(text, detectLanguageCode(text))
   if (clonedAudio) {
     return new Response(new Uint8Array(Buffer.from(clonedAudio, 'base64')), {
       headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=3600' },
