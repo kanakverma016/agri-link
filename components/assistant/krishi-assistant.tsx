@@ -1,10 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport, type UIMessage } from 'ai'
 import { apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 
@@ -13,44 +11,86 @@ const TreeScene = dynamic(() => import('@/components/assistant/tree-scene').then
 })
 
 const MODEL_URL = '/models/krishi-tree.glb'
-const GREETING =
-  'नमस्ते! मैं कृषि दोस्त हूँ, आपका खेती का साथी। फसल, मिट्टी, मौसम या मंडी, जो भी पूछना हो पूछिए।'
-const SUGGESTIONS = [
-  'गेहूं में पीला रतुआ का इलाज क्या है?',
-  'PM किसान योजना में आवेदन कैसे करें?',
-  'खरीफ में कौन सी फसल लगाएं?',
-  'मंडी भाव कहाँ देखें?',
-]
+const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='
+const MAX_RECORDING_MS = 28_000
+const NO_SPEECH_TIMEOUT_MS = 8_000
+const SILENCE_AFTER_SPEECH_MS = 1_600
+const SPEECH_RMS_THRESHOLD = 0.035
+const BAR_SHAPE = [0.45, 0.75, 1, 0.8, 0.55, 0.85, 0.5]
 
-function messageText(message: UIMessage) {
-  return message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
+const QUICK_QUESTIONS = ['मेरी फसल का हाल बताओ', 'आज खेत में क्या करूँ?', 'अब तक कितना खर्च हुआ?']
+
+type Phase = 'sleeping' | 'idle' | 'listening' | 'thinking' | 'speaking'
+type Turn = { role: 'user' | 'assistant'; text: string }
+type Summary = { name: string; plots: number; crops: { crop: string; plot: string; days: number }[] }
+type TalkResponse = {
+  transcript?: string
+  reply?: string
+  language?: string
+  audio?: string | null
+  audioType?: string
+  summary?: Summary
+  code?: string
+  error?: string
+}
+
+const PHASE_LABEL: Record<Phase, string> = {
+  sleeping: 'सो रहा है...',
+  idle: 'सुन रहा हूँ, बोलने के लिए माइक दबाइए',
+  listening: 'आपकी बात सुन रहा है...',
+  thinking: 'सोच रहा है...',
+  speaking: 'बोल रहा है...',
+}
+
+function pickMimeType() {
+  if (typeof MediaRecorder === 'undefined') return ''
+  const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus']
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? ''
+}
+
+function fileNameFor(type: string) {
+  if (type.includes('mp4')) return 'speech.m4a'
+  if (type.includes('ogg')) return 'speech.ogg'
+  return 'speech.webm'
+}
+
+function base64ToBlob(base64: string, type: string) {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type })
 }
 
 export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
   const [open, setOpen] = useState(false)
-  const [awake, setAwake] = useState(false)
+  const [phase, setPhase] = useState<Phase>('sleeping')
   const [sceneReady, setSceneReady] = useState(false)
-  const [greetingLength, setGreetingLength] = useState(0)
-  const [input, setInput] = useState('')
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const [heard, setHeard] = useState('')
+  const [reply, setReply] = useState('')
+  const [notice, setNotice] = useState('')
+  const [summary, setSummary] = useState<Summary | null>(null)
+  const [level, setLevel] = useState(0)
+
   const closeRef = useRef<HTMLButtonElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioUnlockedRef = useRef(false)
+  const finishPlaybackRef = useRef<(() => void) | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const monitorRef = useRef<number | null>(null)
+  const discardRef = useRef(false)
+  const historyRef = useRef<Turn[]>([])
+  const languageRef = useRef('hi-IN')
+  const phaseRef = useRef<Phase>('sleeping')
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: '/api/assistant',
-        fetch: (url, init) => apiFetch(typeof url === 'string' ? url : url instanceof URL ? url.href : url.url, init),
-      }),
-    [],
-  )
-  const { messages, sendMessage, status, error } = useChat({ transport })
+  const updatePhase = useCallback((next: Phase) => {
+    phaseRef.current = next
+    setPhase(next)
+  }, [])
 
-  const busy = status === 'submitted' || status === 'streaming'
-  const greeting = GREETING.slice(0, greetingLength)
-  const typingGreeting = awake && greetingLength < GREETING.length
-  const speaking = awake && (busy || typingGreeting)
-
-  // Warm the model file so the tree appears instantly when the assistant opens.
+  // Warm the 3D model so the tree appears instantly when the assistant opens.
   useEffect(() => {
     const warm = () => void fetch(MODEL_URL).catch(() => {})
     if ('requestIdleCallback' in window) {
@@ -61,56 +101,315 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
     return () => window.clearTimeout(id)
   }, [])
 
-  // Wake the tree shortly after it renders, or after a fallback delay.
+  // Mobile browsers only allow audio that was started inside a tap, so prime the element on the first tap.
+  const unlockAudio = useCallback(() => {
+    if (!audioRef.current) audioRef.current = new Audio()
+    if (audioUnlockedRef.current) return
+    const audio = audioRef.current
+    audio.src = SILENT_WAV
+    audio
+      .play()
+      .then(() => {
+        audio.pause()
+        audioUnlockedRef.current = true
+      })
+      .catch(() => {})
+  }, [])
+
+  const stopSpeaking = useCallback(() => {
+    audioRef.current?.pause()
+    finishPlaybackRef.current?.()
+  }, [])
+
+  const playReply = useCallback((base64: string, type: string) => {
+    return new Promise<void>((resolve) => {
+      const audio = audioRef.current ?? new Audio()
+      audioRef.current = audio
+      audio.pause()
+      const url = URL.createObjectURL(base64ToBlob(base64, type))
+      let done = false
+      const finish = () => {
+        if (done) return
+        done = true
+        audio.onended = null
+        audio.onerror = null
+        finishPlaybackRef.current = null
+        URL.revokeObjectURL(url)
+        resolve()
+      }
+      finishPlaybackRef.current = finish
+      audio.onended = finish
+      audio.onerror = finish
+      audio.src = url
+      audio.play().catch(finish)
+    })
+  }, [])
+
+  const releaseMicrophone = useCallback(() => {
+    if (monitorRef.current !== null) {
+      window.clearInterval(monitorRef.current)
+      monitorRef.current = null
+    }
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    void audioContextRef.current?.close().catch(() => {})
+    audioContextRef.current = null
+    setLevel(0)
+  }, [])
+
+  const runTurn = useCallback(
+    async (fill: (form: FormData) => void, userLabel?: string) => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      updatePhase('thinking')
+      setNotice('')
+      if (userLabel) setHeard(userLabel)
+
+      try {
+        const form = new FormData()
+        fill(form)
+        form.append('lang', languageRef.current)
+        form.append('history', JSON.stringify(historyRef.current.slice(-6)))
+
+        const res = await apiFetch('/api/tree/talk', { method: 'POST', body: form, signal: controller.signal })
+        const data = (await res.json().catch(() => null)) as TalkResponse | null
+
+        if (res.status === 422 || data?.code === 'no_speech') {
+          setNotice('आवाज़ साफ़ नहीं आई। माइक दबाकर फिर से बोलिए।')
+          updatePhase('idle')
+          return
+        }
+        if (!res.ok || !data?.reply) throw new Error(data?.error ?? 'request_failed')
+
+        if (data.language) languageRef.current = data.language
+        if (data.summary) setSummary(data.summary)
+        if (data.transcript) {
+          setHeard(data.transcript)
+          historyRef.current.push({ role: 'user', text: data.transcript })
+        }
+        historyRef.current.push({ role: 'assistant', text: data.reply })
+        historyRef.current = historyRef.current.slice(-8)
+        setReply(data.reply)
+
+        if (data.audio) {
+          updatePhase('speaking')
+          await playReply(data.audio, data.audioType ?? 'audio/mpeg')
+        }
+        if (!controller.signal.aborted && phaseRef.current !== 'listening') updatePhase('idle')
+      } catch (error) {
+        if (controller.signal.aborted) return
+        console.error('[assistant] turn failed', error)
+        setNotice('कुछ गड़बड़ हो गई। इंटरनेट देखकर फिर से कोशिश कीजिए।')
+        updatePhase('idle')
+      }
+    },
+    [playReply, updatePhase],
+  )
+
+  const wakeUp = useCallback(() => {
+    historyRef.current = []
+    setHeard('')
+    setReply('')
+    void runTurn((form) => form.append('mode', 'greet'))
+  }, [runTurn])
+
+  const stopListening = useCallback(
+    (discard = false) => {
+      discardRef.current = discard
+      const recorder = recorderRef.current
+      if (recorder && recorder.state !== 'inactive') recorder.stop()
+      else releaseMicrophone()
+    },
+    [releaseMicrophone],
+  )
+
+  const startListening = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setNotice('इस फ़ोन या ब्राउज़र में माइक सपोर्ट नहीं है। नीचे दिए सवालों में से चुनिए।')
+      return
+    }
+    stopSpeaking()
+    abortRef.current?.abort()
+    setNotice('')
+
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      })
+    } catch {
+      setNotice('माइक की अनुमति नहीं मिली। फ़ोन की सेटिंग में माइक की अनुमति दीजिए।')
+      updatePhase('idle')
+      return
+    }
+
+    streamRef.current = stream
+    discardRef.current = false
+    const mimeType = pickMimeType()
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+    const chunks: Blob[] = []
+    recorderRef.current = recorder
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data)
+    }
+    recorder.onstop = () => {
+      const type = recorder.mimeType || mimeType || 'audio/webm'
+      const blob = new Blob(chunks, { type })
+      const discard = discardRef.current
+      recorderRef.current = null
+      releaseMicrophone()
+      if (discard) return
+      if (blob.size < 2000) {
+        setNotice('आवाज़ सुनाई नहीं दी। माइक दबाकर फिर से बोलिए।')
+        updatePhase('idle')
+        return
+      }
+      void runTurn((form) => form.append('audio', blob, fileNameFor(type)))
+    }
+
+    recorder.start()
+    updatePhase('listening')
+
+    try {
+      const context = new AudioContext()
+      audioContextRef.current = context
+      void context.resume()
+      const analyser = context.createAnalyser()
+      analyser.fftSize = 1024
+      context.createMediaStreamSource(stream).connect(analyser)
+      const samples = new Float32Array(analyser.fftSize)
+      const startedAt = performance.now()
+      let lastVoiceAt = startedAt
+      let heardVoice = false
+
+      monitorRef.current = window.setInterval(() => {
+        analyser.getFloatTimeDomainData(samples)
+        let sum = 0
+        for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i]
+        const rms = Math.sqrt(sum / samples.length)
+        setLevel(Math.min(1, rms * 9))
+
+        const now = performance.now()
+        if (rms > SPEECH_RMS_THRESHOLD) {
+          heardVoice = true
+          lastVoiceAt = now
+        }
+        if (heardVoice && now - lastVoiceAt > SILENCE_AFTER_SPEECH_MS) stopListening()
+        else if (!heardVoice && now - startedAt > NO_SPEECH_TIMEOUT_MS) {
+          setNotice('कुछ सुनाई नहीं दिया। माइक दबाकर फिर से बोलिए।')
+          stopListening(true)
+          updatePhase('idle')
+        } else if (now - startedAt > MAX_RECORDING_MS) stopListening()
+      }, 80)
+    } catch {
+      // Without level metering the farmer simply taps the mic again to finish.
+    }
+  }, [releaseMicrophone, runTurn, stopListening, stopSpeaking, updatePhase])
+
+  const handlePrimaryAction = useCallback(() => {
+    unlockAudio()
+    switch (phaseRef.current) {
+      case 'sleeping':
+        wakeUp()
+        break
+      case 'idle':
+      case 'speaking':
+        void startListening()
+        break
+      case 'listening':
+        stopListening()
+        break
+      case 'thinking':
+        abortRef.current?.abort()
+        updatePhase('idle')
+        break
+    }
+  }, [startListening, stopListening, unlockAudio, updatePhase, wakeUp])
+
+  const askQuick = useCallback(
+    (text: string) => {
+      unlockAudio()
+      stopSpeaking()
+      void runTurn((form) => form.append('text', text), text)
+    },
+    [runTurn, stopSpeaking, unlockAudio],
+  )
+
+  // Greet the farmer as soon as the tree has rendered (or after a short fallback if the 3D scene is slow).
   useEffect(() => {
-    if (!open || awake) return
-    const delay = sceneReady ? 700 : 3200
-    const id = window.setTimeout(() => setAwake(true), delay)
+    if (!open || phase !== 'sleeping') return
+    const id = window.setTimeout(wakeUp, sceneReady ? 600 : 3200)
     return () => window.clearTimeout(id)
-  }, [open, awake, sceneReady])
-
-  useEffect(() => {
-    if (!typingGreeting) return
-    const id = window.setInterval(() => setGreetingLength((n) => Math.min(n + 1, GREETING.length)), 32)
-    return () => window.clearInterval(id)
-  }, [typingGreeting])
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages, status, greetingLength])
+  }, [open, phase, sceneReady, wakeUp])
 
   const close = useCallback(() => {
+    abortRef.current?.abort()
+    stopListening(true)
+    stopSpeaking()
     setOpen(false)
-    setAwake(false)
-  }, [])
+    updatePhase('sleeping')
+    setHeard('')
+    setReply('')
+    setNotice('')
+  }, [stopListening, stopSpeaking, updatePhase])
 
   useEffect(() => {
     if (!open) return
     closeRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, close])
 
-  function send(text: string) {
-    const trimmed = text.trim()
-    if (!trimmed || busy) return
-    setAwake(true)
-    setGreetingLength(GREETING.length)
-    void sendMessage({ text: trimmed })
-    setInput('')
-  }
+  useEffect(
+    () => () => {
+      abortRef.current?.abort()
+      discardRef.current = true
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop()
+      releaseMicrophone()
+      audioRef.current?.pause()
+    },
+    [releaseMicrophone],
+  )
 
-  const statusLabel = !awake ? 'सो रहा है...' : status === 'submitted' ? 'सोच रहा है...' : speaking ? 'बोल रहा है...' : 'ऑनलाइन'
+  const awake = phase !== 'sleeping'
+  const listening = phase === 'listening'
+  const speaking = phase === 'speaking'
+  const busy = phase === 'thinking'
+
+  const micLabel =
+    phase === 'listening'
+      ? 'Stop recording and send'
+      : phase === 'speaking'
+        ? 'Interrupt and speak'
+        : phase === 'thinking'
+          ? 'Cancel'
+          : 'Speak to Krishi Dost'
+
+  const hint =
+    phase === 'sleeping'
+      ? 'पेड़ जाग रहा है...'
+      : phase === 'listening'
+        ? 'बोलिए... रुकने पर अपने आप भेज देगा'
+        : phase === 'thinking'
+          ? 'आपका खेत देखकर जवाब सोच रहा है'
+          : phase === 'speaking'
+            ? 'बीच में बोलने के लिए माइक दबाइए'
+            : 'बोलने के लिए माइक दबाइए'
 
   return (
     <>
       {!open && !hidden && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            unlockAudio()
+            setOpen(true)
+          }}
           aria-label="Open Krishi Dost assistant"
           className="group absolute bottom-24 right-4 z-20 flex h-16 w-16 items-center justify-center rounded-full"
         >
@@ -138,7 +437,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Krishi Dost assistant"
+          aria-label="Krishi Dost voice assistant"
           className="absolute inset-0 z-40 flex origin-[88%_86%] animate-sheet-in flex-col overflow-hidden bg-gradient-to-b from-emerald-950 via-teal-950 to-emerald-900 text-white"
         >
           <header className="flex flex-shrink-0 items-center justify-between gap-3 px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -149,7 +448,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
                   aria-hidden="true"
                   className={cn('h-2 w-2 rounded-full', awake ? 'bg-emerald-400' : 'bg-stone-400')}
                 />
-                <span aria-live="polite">{statusLabel}</span>
+                <span aria-live="polite">{PHASE_LABEL[phase]}</span>
               </p>
             </div>
             <button
@@ -163,112 +462,143 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
             </button>
           </header>
 
+          {summary && (summary.plots > 0 || summary.crops.length > 0) && (
+            <ul
+              aria-label="What Krishi Dost knows about your farm"
+              className="flex flex-shrink-0 gap-2 overflow-x-auto px-4 pb-1 pt-1 [scrollbar-width:none]"
+            >
+              <li className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-emerald-100">
+                <i className="ph ph-map-trifold" aria-hidden="true" />
+                {summary.plots} खेत
+              </li>
+              {summary.crops.map((c) => (
+                <li
+                  key={`${c.plot}-${c.crop}`}
+                  className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1.5 text-xs font-bold text-emerald-100 ring-1 ring-emerald-300/30"
+                >
+                  <i className="ph ph-plant" aria-hidden="true" />
+                  {c.crop} · दिन {c.days}
+                </li>
+              ))}
+            </ul>
+          )}
+
           <button
             type="button"
-            onClick={() => setAwake(true)}
-            disabled={awake}
-            aria-label={awake ? 'Krishi Dost is awake' : 'Wake up Krishi Dost'}
-            className="relative h-[30dvh] max-h-72 min-h-40 w-full flex-shrink-0 cursor-default disabled:cursor-default"
+            onClick={handlePrimaryAction}
+            aria-label={awake ? micLabel : 'Wake up Krishi Dost'}
+            className="relative min-h-40 w-full flex-1 cursor-pointer"
           >
-            <TreeScene awake={awake} speaking={speaking} onReady={() => setSceneReady(true)} className="absolute inset-0" />
+            <TreeScene
+              awake={awake}
+              speaking={speaking}
+              listening={listening}
+              onReady={() => setSceneReady(true)}
+              className="absolute inset-0"
+            />
             {!awake && (
               <span className="pointer-events-none absolute inset-x-0 bottom-3 flex flex-col items-center gap-1 text-sm font-bold text-emerald-100">
                 <span aria-hidden="true" className="animate-zzz-float text-2xl font-extrabold">
                   Zzz
                 </span>
-                {sceneReady ? 'Tap to wake me up' : 'Loading...'}
+                {sceneReady ? 'Waking up...' : 'Loading...'}
               </span>
             )}
           </button>
 
-          <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3" aria-live="polite">
-            {awake && greeting && (
-              <div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-base leading-relaxed">
-                {greeting}
-              </div>
+          <div className="flex max-h-[34dvh] min-h-[7rem] flex-shrink-0 flex-col gap-2 overflow-y-auto px-4 pb-2 pt-1" aria-live="polite">
+            {heard && (
+              <p className="self-end rounded-2xl rounded-br-md bg-emerald-400 px-3.5 py-2 text-sm font-semibold text-emerald-950">
+                {heard}
+              </p>
             )}
-
-            {awake && messages.length === 0 && !typingGreeting && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => send(s)}
-                    className="animate-fade-up rounded-full bg-emerald-400/15 px-3 py-2 text-left text-sm font-semibold text-emerald-100 ring-1 ring-emerald-300/30 hover:bg-emerald-400/25"
-                  >
-                    {s}
-                  </button>
+            {reply && (
+              <p
+                key={reply}
+                className="animate-fade-up self-start rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-base leading-relaxed"
+              >
+                {reply}
+              </p>
+            )}
+            {busy && !reply && (
+              <div className="flex items-center gap-1.5 self-start rounded-2xl rounded-bl-md bg-white/10 px-4 py-4" role="status">
+                <span className="sr-only">Krishi Dost is thinking</span>
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    style={{ animationDelay: `${i * 150}ms` }}
+                    className="h-2 w-2 animate-bob rounded-full bg-emerald-200"
+                  />
                 ))}
               </div>
             )}
-
-            {messages.map((m) => {
-              const text = messageText(m)
-              if (!text) return null
-              const mine = m.role === 'user'
-              return (
-                <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                  <div
-                    className={cn(
-                      'max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-base leading-relaxed',
-                      mine ? 'rounded-br-md bg-emerald-400 text-emerald-950' : 'rounded-bl-md bg-white/10',
-                    )}
-                  >
-                    {text}
-                  </div>
-                </div>
-              )
-            })}
-
-            {status === 'submitted' && (
-              <div className="flex" role="status" aria-label="Krishi Dost is thinking">
-                <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-white/10 px-4 py-4">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      style={{ animationDelay: `${i * 150}ms` }}
-                      className="h-2 w-2 animate-bob rounded-full bg-emerald-200"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <p role="alert" className="rounded-2xl bg-red-500/20 px-4 py-3 text-sm font-semibold text-red-100">
-                कुछ गड़बड़ हो गई। कृपया दोबारा कोशिश करें।
+            {notice && (
+              <p role="alert" className="rounded-2xl bg-amber-400/20 px-4 py-3 text-sm font-semibold text-amber-100">
+                {notice}
               </p>
             )}
           </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              send(input)
-            }}
-            className="flex flex-shrink-0 items-center gap-2 border-t border-white/10 bg-emerald-950/80 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3"
-          >
-            <label htmlFor="assistant-input" className="sr-only">
-              Message Krishi Dost
-            </label>
-            <input
-              id="assistant-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="कृषि दोस्त से पूछिए..."
-              autoComplete="off"
-              className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-3 text-base text-white placeholder:text-emerald-200/60 focus:outline-none focus:ring-2 focus:ring-emerald-300"
-            />
-            <button
-              type="submit"
-              disabled={busy || !input.trim()}
-              aria-label="Send message"
-              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-emerald-400 text-emerald-950 transition-opacity disabled:opacity-40"
-            >
-              <i className="ph-fill ph-paper-plane-right text-xl" aria-hidden="true" />
-            </button>
-          </form>
+          {awake && !listening && (
+            <div className="flex flex-shrink-0 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
+              {QUICK_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => askQuick(q)}
+                  className="flex-shrink-0 rounded-full bg-emerald-400/15 px-3.5 py-2 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-300/30 hover:bg-emerald-400/25 disabled:opacity-40"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <footer className="flex flex-shrink-0 flex-col items-center gap-2 border-t border-white/10 bg-emerald-950/80 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+            <div className="relative flex h-20 w-20 items-center justify-center">
+              {listening && (
+                <span
+                  aria-hidden="true"
+                  style={{ transform: `scale(${1 + level * 0.55})` }}
+                  className="absolute inset-0 rounded-full bg-emerald-400/30 transition-transform duration-100"
+                />
+              )}
+              {(listening || speaking) && (
+                <span aria-hidden="true" className="absolute inset-0 animate-wake-ring rounded-full bg-emerald-400/40" />
+              )}
+              <button
+                type="button"
+                onClick={handlePrimaryAction}
+                disabled={!awake}
+                aria-label={micLabel}
+                aria-pressed={listening}
+                className={cn(
+                  'relative flex h-16 w-16 items-center justify-center rounded-full text-emerald-950 shadow-lg shadow-black/30 transition-transform active:scale-90 disabled:opacity-40',
+                  listening ? 'bg-white' : 'bg-emerald-400',
+                )}
+              >
+                {listening ? (
+                  <span aria-hidden="true" className="flex h-8 items-center gap-[3px]">
+                    {BAR_SHAPE.map((shape, i) => (
+                      <span
+                        key={i}
+                        style={{ height: `${Math.max(14, Math.min(100, (0.2 + level * shape) * 100))}%` }}
+                        className="w-[3px] rounded-full bg-emerald-600 transition-[height] duration-100"
+                      />
+                    ))}
+                  </span>
+                ) : busy ? (
+                  <span aria-hidden="true" className="h-6 w-6 animate-spin rounded-full border-[3px] border-emerald-900/30 border-t-emerald-950" />
+                ) : speaking ? (
+                  <i className="ph-fill ph-microphone text-3xl" aria-hidden="true" />
+                ) : (
+                  <i className="ph-fill ph-microphone text-3xl" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+            <p className="text-center text-sm font-semibold text-emerald-100/90">{hint}</p>
+          </footer>
         </div>
       )}
     </>

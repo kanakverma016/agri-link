@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react'
 type TreeSceneProps = {
   awake: boolean
   speaking: boolean
+  listening?: boolean
   onReady?: () => void
   className?: string
 }
@@ -16,17 +17,19 @@ const FIREFLY_COUNT = 36
  * Renders the Krishi Dost tree with three.js. The scene reads `awake` and
  * `speaking` from refs so toggling them animates the tree without rebuilding it.
  */
-export function TreeScene({ awake, speaking, onReady, className }: TreeSceneProps) {
+export function TreeScene({ awake, speaking, listening = false, onReady, className }: TreeSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const awakeRef = useRef(awake)
   const speakingRef = useRef(speaking)
+  const listeningRef = useRef(listening)
   const onReadyRef = useRef(onReady)
 
   useEffect(() => {
     awakeRef.current = awake
     speakingRef.current = speaking
+    listeningRef.current = listening
     onReadyRef.current = onReady
-  }, [awake, speaking, onReady])
+  }, [awake, speaking, listening, onReady])
 
   useEffect(() => {
     const container = containerRef.current
@@ -186,6 +189,7 @@ export function TreeScene({ awake, speaking, onReady, className }: TreeSceneProp
 
       let awakeLevel = 0
       let speakLevel = 0
+      let listenLevel = 0
       let wakeBounce = 0
       let wasAwake = false
       let spin = 0
@@ -215,6 +219,7 @@ export function TreeScene({ awake, speaking, onReady, className }: TreeSceneProp
 
         awakeLevel = smooth(awakeLevel, isAwake ? 1 : 0, 3.2, dt)
         speakLevel = smooth(speakLevel, speakingRef.current ? 1 : 0, 6, dt)
+        listenLevel = smooth(listenLevel, listeningRef.current ? 1 : 0, 5, dt)
 
         if (material && colorAttr && awakeColors && sleepColors) {
           const blend = Math.round(awakeLevel * 50) / 50
@@ -224,23 +229,29 @@ export function TreeScene({ awake, speaking, onReady, className }: TreeSceneProp
             for (let i = 0; i < out.length; i++) out[i] = sleepColors[i] + (awakeColors[i] - sleepColors[i]) * blend
             colorAttr.needsUpdate = true
           }
-          material.emissiveIntensity = awakeLevel * (0.08 + speakLevel * 0.22 + wakeBounce * 0.6)
+          material.emissiveIntensity =
+            awakeLevel * (0.08 + speakLevel * 0.22 + listenLevel * 0.14 * (0.6 + 0.4 * Math.sin(t * 5)) + wakeBounce * 0.6)
         }
 
         const breathe = Math.sin(t * (1.2 + awakeLevel * 0.8 + speakLevel * 2.4))
         const bounce = Math.sin(wakeBounce * Math.PI * 3) * wakeBounce * 0.1
-        const scale = 0.96 + awakeLevel * 0.04 + breathe * (0.006 + speakLevel * 0.018) + bounce
+        const scale = 0.96 + awakeLevel * 0.04 + listenLevel * 0.025 + breathe * (0.006 + speakLevel * 0.018) + bounce
         pivot.scale.setScalar(scale)
         pivot.position.y = Math.abs(bounce) * 0.6
 
         spin += dt * (reduceMotion ? 0 : 0.12 + awakeLevel * 0.1)
         const droop = (1 - awakeLevel) * 0.09
-        pivot.rotation.set(droop, spin + pointerX * 0.35, Math.sin(t * 0.7) * 0.015 * awakeLevel + droop * 0.4)
+        const lean = listenLevel * 0.06
+        pivot.rotation.set(
+          droop + lean,
+          spin * (1 - listenLevel * 0.85) + pointerX * 0.35,
+          Math.sin(t * 0.7) * 0.015 * awakeLevel + droop * 0.4,
+        )
 
-        rim.intensity = awakeLevel * (4 + speakLevel * 5)
+        rim.intensity = awakeLevel * (4 + speakLevel * 5 + listenLevel * 3)
         ;(ground.material as InstanceType<typeof THREE.MeshBasicMaterial>).opacity =
-          awakeLevel * (0.28 + speakLevel * 0.22 + wakeBounce * 0.35)
-        ground.scale.setScalar(1 + wakeBounce * 0.5 + speakLevel * 0.08 * Math.sin(t * 6))
+          awakeLevel * (0.28 + speakLevel * 0.22 + listenLevel * 0.2 + wakeBounce * 0.35)
+        ground.scale.setScalar(1 + wakeBounce * 0.5 + speakLevel * 0.08 * Math.sin(t * 6) + listenLevel * 0.1 * Math.sin(t * 4))
 
         for (let i = 0; i < FIREFLY_COUNT; i++) {
           const f = fireflySeeds[i]
