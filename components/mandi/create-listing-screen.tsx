@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
-import { db, storage } from '@/lib/firebase'
+import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { Spinner } from '@/components/ui/spinner'
@@ -38,10 +36,13 @@ export function CreateListingScreen() {
     let cancelled = false
     async function load(uid: string) {
       try {
-        const snap = await getDoc(doc(db, 'users', uid))
-        if (!snap.exists()) throw new Error('User profile not found.')
+        const { data, error } = await createClient()
+          .from('profiles')
+          .select('name, profilePicture, district, state')
+          .eq('id', uid)
+          .maybeSingle()
+        if (error || !data) throw error ?? new Error('User profile not found.')
         if (cancelled) return
-        const data = snap.data() as SellerProfile
         setProfile(data)
         setLocation(`${data.district || 'Unknown'}, ${data.state || 'India'}`)
       } catch (err) {
@@ -75,18 +76,14 @@ export function CreateListingScreen() {
     setSubmitting(true)
     setProgress(0)
     try {
-      const storageRef = ref(storage, `b2b-listings/${user.uid}/${Date.now()}_${imageFile.name}`)
-      const task = uploadBytesResumable(storageRef, imageFile)
-      const imageUrl = await new Promise<string>((resolve, reject) => {
-        task.on(
-          'state_changed',
-          (s) => setProgress((s.bytesTransferred / s.totalBytes) * 100),
-          reject,
-          async () => resolve(await getDownloadURL(task.snapshot.ref)),
-        )
-      })
+      const imageUrl = await uploadMedia(
+        user.uid,
+        `b2b-listings/${Date.now()}_${safeFileName(imageFile.name)}`,
+        imageFile,
+      )
+      setProgress(100)
 
-      await addDoc(collection(db, 'b2b-listings'), {
+      const { error } = await createClient().from('b2b_listings').insert({
         sellerId: user.uid,
         sellerName: profile.name || 'Farmer',
         sellerProfilePic: profile.profilePicture || null,
@@ -98,8 +95,8 @@ export function CreateListingScreen() {
         priceUnit,
         imageUrl,
         status: 'Active',
-        createdAt: serverTimestamp(),
       })
+      if (error) throw error
       showAlert('Success', 'Your listing is now live!')
       setTimeout(() => router.push('/my-listings'), 1500)
     } catch (err) {

@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { ChatDetails, Post } from '@/lib/types'
@@ -29,7 +28,12 @@ const QUICK_LINKS = [
 export function HomeScreen() {
   const { user, profile } = useAuth()
   const { alert, showAlert, closeAlert } = useAlert()
-  const [posts, setPosts] = useState<Post[]>([])
+  const { items: posts } = useLiveQuery<Post>({
+    table: 'posts',
+    enabled: Boolean(user),
+    orderBy: 'createdAt',
+    ascending: false,
+  })
   const [search, setSearch] = useState('')
   const [headerHidden, setHeaderHidden] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
@@ -40,16 +44,6 @@ export function HomeScreen() {
   const [activeChat, setActiveChat] = useState<ChatDetails | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastScrollY = useRef(0)
-
-  useEffect(() => {
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
-    return onSnapshot(
-      q,
-      (snapshot) =>
-        setPosts(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Post, 'id'>) }))),
-      (error) => console.error('Failed to load posts:', error),
-    )
-  }, [])
 
   // Open a chat directly when redirected here with ?openChat=true&chatId=...
   useEffect(() => {

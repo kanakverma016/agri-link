@@ -1,9 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
-import { db, storage } from '@/lib/firebase'
+import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useAuth } from '@/components/providers/auth-provider'
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition'
@@ -69,29 +67,22 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
       let fileUrl: string | null = null
       if (file) {
         const folder = isVideo ? 'videos' : 'images'
-        const storageRef = ref(storage, `posts/${user.uid}/${folder}/${Date.now()}_${file.name}`)
-        const task = uploadBytesResumable(storageRef, file)
-        setProgress(0)
-        fileUrl = await new Promise<string>((resolve, reject) => {
-          task.on(
-            'state_changed',
-            (snap) => setProgress((snap.bytesTransferred / snap.totalBytes) * 100),
-            reject,
-            () => getDownloadURL(task.snapshot.ref).then(resolve, reject),
-          )
-        })
+        setProgress(30)
+        fileUrl = await uploadMedia(user.uid, `posts/${folder}/${Date.now()}_${safeFileName(file.name)}`, file)
+        setProgress(90)
       }
 
-      await addDoc(collection(db, 'posts'), {
-        userId: user.uid,
-        authorName: profile.name || 'Anonymous User',
-        authorProfilePic: profile.profilePicture || user.photoURL || DEFAULT_PROFILE_LOGO,
-        caption: trimmed,
-        tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-        createdAt: serverTimestamp(),
-        likes: [],
-        ...(file && fileUrl ? (isVideo ? { videoUrl: fileUrl } : { imageUrl: fileUrl }) : {}),
-      })
+      const { error } = await createClient()
+        .from('posts')
+        .insert({
+          userId: user.uid,
+          authorName: profile.name || 'Anonymous User',
+          authorProfilePic: profile.profilePicture || user.photoURL || DEFAULT_PROFILE_LOGO,
+          caption: trimmed,
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+          ...(file && fileUrl ? (isVideo ? { videoUrl: fileUrl } : { imageUrl: fileUrl }) : {}),
+        })
+      if (error) throw error
       onClose()
     } catch (error) {
       console.error('Error saving post:', error)

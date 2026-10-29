@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import type { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/components/providers/auth-provider'
-import { useUserCollection } from '@/lib/use-user-collection'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { Spinner } from '@/components/ui/spinner'
@@ -13,17 +12,22 @@ type Transaction = {
   amount: number
   description: string
   plotName: string
-  date: Timestamp
+  date: string
 }
 
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`
 
 export function TransactionsScreen() {
   const { user } = useAuth()
-  const { items, loading, error } = useUserCollection<Transaction>(user?.uid, 'transactions', 'date')
+  const { items, loading, error } = useLiveQuery<Transaction>({
+    table: 'transactions',
+    enabled: Boolean(user),
+    eq: { userId: user?.uid },
+    orderBy: 'date',
+  })
 
-  const income = items.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const expense = items.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const income = items.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
+  const expense = items.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
   const net = income - expense
 
   return (
@@ -105,12 +109,12 @@ export function TransactionsScreen() {
                         <div className="flex-grow">
                           <p className="font-medium text-gray-800">{t.description}</p>
                           <p className="text-sm text-gray-500">
-                            {t.plotName} • {t.date?.toDate().toLocaleDateString()}
+                            {t.plotName} • {t.date ? new Date(t.date).toLocaleDateString() : ''}
                           </p>
                         </div>
                         <span className={`text-lg font-bold ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
                           {isIncome ? '+ ' : '- '}
-                          {inr(t.amount)}
+                          {inr(Number(t.amount))}
                         </span>
                       </li>
                     )

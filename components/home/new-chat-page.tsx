@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useAuth } from '@/components/providers/auth-provider'
 import type { ChatDetails, ChatUser } from '@/lib/types'
@@ -25,20 +24,19 @@ export function NewChatPage({
   const { data: users, error } = useSWR(
     user ? ['all-users', user.uid] : null,
     async ([, uid]): Promise<ListedUser[]> => {
-      const snap = await getDocs(collection(db, 'users'))
-      return snap.docs
-        .filter((d) => d.id !== uid)
-        .map((d) => {
-          const data = d.data()
-          return {
-            uid: d.id,
-            name: data.name || 'Unknown User',
-            profilePicture: data.profilePicture || DEFAULT_PROFILE_LOGO,
-            userType: data.userType,
-            district: data.district,
-            state: data.state,
-          }
-        })
+      const { data, error } = await createClient()
+        .from('profiles')
+        .select('id, name, profilePicture, userType, district, state')
+        .neq('id', uid)
+      if (error) throw error
+      return (data ?? []).map((p) => ({
+        uid: p.id as string,
+        name: p.name || 'Unknown User',
+        profilePicture: p.profilePicture || DEFAULT_PROFILE_LOGO,
+        userType: p.userType ?? undefined,
+        district: p.district ?? undefined,
+        state: p.state ?? undefined,
+      }))
     },
     { revalidateOnFocus: false },
   )
@@ -47,21 +45,21 @@ export function NewChatPage({
     if (!user || opening) return
     setOpening(true)
     try {
-      const existing = await getDocs(
-        query(collection(db, 'chats'), where('participants', 'array-contains', user.uid)),
-      )
-      let chatId: string | null = null
-      existing.forEach((d) => {
-        const participants = d.data().participants as string[]
-        if (participants.includes(target.uid) && participants.length === 2) chatId = d.id
-      })
+      const supabase = createClient()
+      const { data: existing, error: findError } = await supabase
+        .from('chats')
+        .select('id, participants')
+        .contains('participants', [user.uid, target.uid])
+      if (findError) throw findError
+      let chatId: string | undefined = existing?.find((c) => c.participants.length === 2)?.id
       if (!chatId) {
-        const created = await addDoc(collection(db, 'chats'), {
-          participants: [user.uid, target.uid],
-          lastMessage: 'Chat created',
-          lastMessageTimestamp: serverTimestamp(),
-        })
-        chatId = created.id
+        const { data: created, error: createError } = await supabase
+          .from('chats')
+          .insert({ participants: [user.uid, target.uid], lastMessage: 'Chat created' })
+          .select('id')
+          .single()
+        if (createError) throw createError
+        chatId = created.id as string
       }
       onOpenChat({ chatId, otherUser: target })
     } catch (err) {

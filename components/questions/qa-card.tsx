@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import type { Timestamp } from 'firebase/firestore'
 import { Spinner } from '@/components/ui/spinner'
 
 export type QuestionDoc = {
@@ -11,7 +10,7 @@ export type QuestionDoc = {
   status: 'pending' | 'answered'
   answerText?: string
   audioURL?: string | null
-  createdAt?: Timestamp | null
+  createdAt?: string | null
 }
 
 const NO_AUDIO_MARKERS = ['माफ़ करें', 'Stopped by user.']
@@ -29,7 +28,7 @@ export function QACard({
   onStop: (id: string) => void
   onPlay: (q: QuestionDoc) => void
 }) {
-  const date = q.createdAt ? q.createdAt.toDate().toLocaleString() : 'Just now'
+  const date = q.createdAt ? new Date(q.createdAt).toLocaleString() : 'Just now'
   const answer = q.answerText || 'No answer provided.'
   const canSpeak = !NO_AUDIO_MARKERS.some((m) => answer.includes(m))
   const generating = q.audioURL === null

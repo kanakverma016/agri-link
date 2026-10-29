@@ -1,20 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import {
-  addDoc,
-  collection,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  where,
-  type Timestamp,
-} from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useSpeechSearch } from '@/lib/use-speech-search'
 import { useAuth } from '@/components/providers/auth-provider'
@@ -35,7 +25,7 @@ type Listing = {
   price: number
   priceUnit: string
   imageUrl?: string
-  createdAt?: Timestamp | null
+  createdAt?: string | null
 }
 
 const NO_IMAGE = 'https://placehold.co/600x400/e2e8f0/64748b?text=No+Image'
@@ -44,34 +34,19 @@ export function MarketplaceScreen() {
   const { user } = useAuth()
   const router = useRouter()
   const { alert, showAlert, closeAlert } = useAlert()
-  const [listings, setListings] = useState<Listing[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const speech = useSpeechSearch(setSearch)
-
-  useEffect(() => {
-    if (!user) return
-    // Requires a composite Firestore index on (status, createdAt desc).
-    const q = query(
-      collection(db, 'b2b-listings'),
-      where('status', '==', 'Active'),
-      orderBy('createdAt', 'desc'),
-    )
-    return onSnapshot(
-      q,
-      (snapshot) => {
-        setListings(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Listing, 'id'>) })))
-        setError(null)
-        setLoading(false)
-      },
-      (err) => {
-        console.error('Error loading listings: ', err)
-        setError(err.message)
-        setLoading(false)
-      },
-    )
-  }, [user])
+  const {
+    items: listings,
+    loading,
+    error: loadFailed,
+  } = useLiveQuery<Listing>({
+    table: 'b2b_listings',
+    enabled: Boolean(user),
+    eq: { status: 'Active' },
+    orderBy: 'createdAt',
+  })
+  const error = loadFailed ? 'Could not load listings.' : null
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase()
@@ -81,21 +56,24 @@ export function MarketplaceScreen() {
   async function contactSeller(listing: Listing) {
     if (!user) return
     try {
-      const snap = await getDocs(
-        query(collection(db, 'chats'), where('participants', 'array-contains', user.uid)),
-      )
-      let chatId: string | null = null
-      snap.forEach((d) => {
-        const participants: string[] = d.data().participants
-        if (participants.includes(listing.sellerId) && participants.length === 2) chatId = d.id
-      })
+      const supabase = createClient()
+      const { data: existing, error: findError } = await supabase
+        .from('chats')
+        .select('id, participants')
+        .contains('participants', [user.uid])
+      if (findError) throw findError
+      let chatId =
+        (existing ?? []).find(
+          (c) => (c.participants as string[]).includes(listing.sellerId) && (c.participants as string[]).length === 2,
+        )?.id ?? null
       if (!chatId) {
-        const created = await addDoc(collection(db, 'chats'), {
-          participants: [user.uid, listing.sellerId],
-          lastMessage: 'Chat created',
-          lastMessageTimestamp: serverTimestamp(),
-        })
-        chatId = created.id
+        const { data: created, error: createError } = await supabase
+          .from('chats')
+          .insert({ participants: [user.uid, listing.sellerId], lastMessage: 'Chat created' })
+          .select('id')
+          .single()
+        if (createError) throw createError
+        chatId = created.id as string
       }
       const params = new URLSearchParams({
         openChat: 'true',
@@ -169,9 +147,6 @@ export function MarketplaceScreen() {
           ) : error ? (
             <div className="p-10 text-center">
               <p className="text-red-500">Error: {error}</p>
-              <p className="text-sm text-gray-500">
-                If this mentions an index, create the suggested Firestore composite index.
-              </p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-10 text-center">
@@ -218,7 +193,7 @@ export function MarketplaceScreen() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500">
-                        Posted: {l.createdAt ? l.createdAt.toDate().toLocaleDateString() : 'Just now'}
+                        Posted: {l.createdAt ? new Date(l.createdAt).toLocaleDateString() : 'Just now'}
                       </span>
                       {user?.uid === l.sellerId ? (
                         <Link

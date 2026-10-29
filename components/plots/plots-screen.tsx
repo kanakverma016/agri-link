@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
@@ -16,28 +15,17 @@ type Plot = { id: string; plotName: string; area: number; areaUnit: string; soil
 export function PlotsScreen() {
   const { user } = useAuth()
   const { alert, showAlert, closeAlert } = useAlert()
-  const [plots, setPlots] = useState<Plot[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-
-  useEffect(() => {
-    if (!user) return
-    const q = query(collection(db, 'users', user.uid, 'plots'), orderBy('createdAt', 'desc'))
-    return onSnapshot(
-      q,
-      (snap) => {
-        setPlots(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Plot, 'id'>) })))
-        setLoadError(false)
-        setLoading(false)
-      },
-      (err) => {
-        console.error('Error loading plots: ', err)
-        setLoadError(true)
-        setLoading(false)
-      },
-    )
-  }, [user])
+  const {
+    items: plots,
+    loading,
+    error: loadError,
+  } = useLiveQuery<Plot>({
+    table: 'plots',
+    enabled: Boolean(user),
+    eq: { userId: user?.uid },
+    orderBy: 'createdAt',
+  })
 
   return (
     <MobileFrame className="bg-gray-50">

@@ -3,16 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  type Timestamp,
-} from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import useSWR from 'swr'
+import { createClient } from '@/lib/supabase/client'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { Spinner } from '@/components/ui/spinner'
@@ -24,27 +17,47 @@ type Cycle = {
   id: string
   cropName: string
   variety?: string
-  sowingDate: Timestamp
+  sowingDate: string
   status: string
-  harvestDate?: Timestamp
-  totalYield?: number
-  sellingPrice?: number
-  totalCost?: number
+  harvestDate?: string | null
+  totalYield?: number | null
+  sellingPrice?: number | null
+  totalCost?: number | null
 }
-type Activity = { id: string; type: string; cost: number; description?: string; date: Timestamp }
+type Activity = { id: string; type: string; cost: number; description?: string; date: string }
 
-const inr = (n: number) => n.toLocaleString('en-IN')
+const inr = (n: number) => Number(n).toLocaleString('en-IN')
+const day = (iso: string) => new Date(iso).toLocaleDateString()
 
 export function PlotDetailScreen() {
   const { user } = useAuth()
   const router = useRouter()
   const plotId = useSearchParams().get('plotId')
   const { alert, showAlert, closeAlert } = useAlert()
-  const [plot, setPlot] = useState<PlotInfo | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [cycles, setCycles] = useState<Cycle[]>([])
-  const [activities, setActivities] = useState<Activity[]>([])
   const [modal, setModal] = useState<'cycle' | 'activity' | 'harvest' | null>(null)
+
+  const { data: plot, isLoading: loading } = useSWR(
+    user && plotId ? ['plot', user.uid, plotId] : null,
+    async ([, uid, id]) => {
+      const { data, error } = await createClient()
+        .from('plots')
+        .select('plotName, area, areaUnit, soilType')
+        .eq('id', id)
+        .eq('userId', uid)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) showAlert('Error', 'Plot not found.')
+      return (data as PlotInfo | null) ?? null
+    },
+    { revalidateOnFocus: false },
+  )
+
+  const { items: cycles } = useLiveQuery<Cycle>({
+    table: 'cycles',
+    enabled: Boolean(user && plotId),
+    eq: { plotId: plotId ?? undefined },
+    orderBy: 'createdAt',
+  })
 
   const activeCycle = useMemo(() => cycles.find((c) => c.status === 'Active') ?? null, [cycles])
   const history = useMemo(() => cycles.filter((c) => c.status !== 'Active'), [cycles])
@@ -54,45 +67,12 @@ export function PlotDetailScreen() {
     if (!plotId) router.replace('/my-plots')
   }, [plotId, router])
 
-  useEffect(() => {
-    if (!user || !plotId) return
-    let cancelled = false
-    getDoc(doc(db, 'users', user.uid, 'plots', plotId))
-      .then((snap) => {
-        if (cancelled) return
-        if (snap.exists()) setPlot(snap.data() as PlotInfo)
-        else showAlert('Error', 'Plot not found.')
-      })
-      .catch((err) => console.error('Error loading plot details: ', err))
-      .finally(() => !cancelled && setLoading(false))
-    return () => {
-      cancelled = true
-    }
-  }, [user, plotId, showAlert])
-
-  useEffect(() => {
-    if (!user || !plotId) return
-    const q = query(collection(db, 'users', user.uid, 'plots', plotId, 'cycles'), orderBy('createdAt', 'desc'))
-    return onSnapshot(
-      q,
-      (snap) => setCycles(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Cycle, 'id'>) }))),
-      (err) => console.error('Error loading crop cycles: ', err),
-    )
-  }, [user, plotId])
-
-  useEffect(() => {
-    if (!user || !plotId || !activeCycleId) {
-      setActivities([])
-      return
-    }
-    const q = query(
-      collection(db, 'users', user.uid, 'plots', plotId, 'cycles', activeCycleId, 'activities'),
-      orderBy('date', 'desc'),
-    )
-    return onSnapshot(q, (snap) =>
-      setActivities(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Activity, 'id'>) }))),
-    )
-  }, [user, plotId, activeCycleId])
+  const { items: activities } = useLiveQuery<Activity>({
+    table: 'activities',
+    enabled: Boolean(activeCycleId),
+    eq: { cycleId: activeCycleId ?? undefined },
+    orderBy: 'date',
+  })
 
   const onError = (message: string) => showAlert('Error', message)
   const closeModal = () => setModal(null)
@@ -143,7 +123,7 @@ export function PlotDetailScreen() {
                   <h3 className="text-2xl font-bold text-green-700">{activeCycle.cropName}</h3>
                   <p className="mb-1 text-gray-600">{activeCycle.variety || 'N/A'}</p>
                   <p className="text-sm text-gray-500">
-                    Sown on: {activeCycle.sowingDate.toDate().toLocaleDateString()}
+                    Sown on: {day(activeCycle.sowingDate)}
                   </p>
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <button
@@ -193,7 +173,7 @@ export function PlotDetailScreen() {
                           <span className="text-lg font-bold text-red-600">- ₹{inr(a.cost)}</span>
                         </div>
                         <p className="text-sm text-gray-600">{a.description || 'No description'}</p>
-                        <p className="mt-1 text-xs text-gray-400">{a.date.toDate().toLocaleDateString()}</p>
+                        <p className="mt-1 text-xs text-gray-400">{day(a.date)}</p>
                       </li>
                     ))}
                   </ul>
@@ -215,8 +195,8 @@ export function PlotDetailScreen() {
                       <li key={c.id} className="rounded-lg bg-gray-100 p-4">
                         <h4 className="text-lg font-semibold text-gray-800">{c.cropName}</h4>
                         <p className="mb-3 text-sm text-gray-500">
-                          Sown: {c.sowingDate.toDate().toLocaleDateString()} | Harvested:{' '}
-                          {c.harvestDate?.toDate().toLocaleDateString() ?? '-'}
+                          Sown: {day(c.sowingDate)} | Harvested:{' '}
+                          {c.harvestDate ? day(c.harvestDate) : '-'}
                         </p>
                         <div className="grid grid-cols-3 gap-2 text-center">
                           <div>

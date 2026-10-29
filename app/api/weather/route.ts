@@ -1,7 +1,7 @@
-import { jsonError, verifyFirebaseUser } from '@/lib/server/verify-auth'
+import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 
 export async function GET(request: Request) {
-  if (!(await verifyFirebaseUser(request))) return jsonError('Unauthorized', 401)
+  if (!(await verifyUser(request))) return jsonError('Unauthorized', 401)
 
   const apiKey = process.env.OPENWEATHER_API_KEY
   if (!apiKey) return jsonError('Weather service is not configured (OPENWEATHER_API_KEY).', 503)

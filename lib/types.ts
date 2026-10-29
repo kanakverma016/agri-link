@@ -1,5 +1,3 @@
-import type { Timestamp } from 'firebase/firestore'
-
 export type Post = {
   id: string
   userId: string
@@ -7,7 +5,7 @@ export type Post = {
   authorProfilePic?: string
   caption?: string
   tags?: string[]
-  createdAt?: Timestamp | null
+  createdAt?: string | null
   likes?: string[]
   comments?: unknown[]
   videoUrl?: string

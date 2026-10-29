@@ -1,19 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import {
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  updateDoc,
-  where,
-  type Timestamp,
-} from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { createClient } from '@/lib/supabase/client'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
@@ -30,7 +20,7 @@ type Listing = {
   priceUnit: string
   status: string
   imageUrl?: string
-  createdAt?: Timestamp | null
+  createdAt?: string | null
 }
 
 type Pending = { kind: 'sold' | 'delete'; id: string } | null
@@ -45,46 +35,36 @@ const NO_IMAGE = 'https://placehold.co/600x400/e2e8f0/64748b?text=No+Image'
 export function ListingsScreen() {
   const { user } = useAuth()
   const { alert, showAlert, closeAlert } = useAlert()
-  const [listings, setListings] = useState<Listing[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<Pending>(null)
-
-  useEffect(() => {
-    if (!user) return
-    // Requires a composite Firestore index on (sellerId, createdAt desc).
-    const q = query(
-      collection(db, 'b2b-listings'),
-      where('sellerId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-    )
-    return onSnapshot(
-      q,
-      (snapshot) => {
-        setListings(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Listing, 'id'>) })))
-        setError(null)
-        setLoading(false)
-      },
-      (err) => {
-        console.error('Error loading listings: ', err)
-        setError(err.message)
-        setLoading(false)
-      },
-    )
-  }, [user])
+  const {
+    items: listings,
+    loading,
+    error: loadFailed,
+    refetch,
+  } = useLiveQuery<Listing>({
+    table: 'b2b_listings',
+    enabled: Boolean(user),
+    eq: { sellerId: user?.uid },
+    orderBy: 'createdAt',
+  })
+  const error = loadFailed ? 'Could not load listings.' : null
 
   async function runPending() {
     if (!pending) return
     const { kind, id } = pending
     setPending(null)
     try {
+      const supabase = createClient()
       if (kind === 'sold') {
-        await updateDoc(doc(db, 'b2b-listings', id), { status: 'Sold' })
+        const { error: updateError } = await supabase.from('b2b_listings').update({ status: 'Sold' }).eq('id', id)
+        if (updateError) throw updateError
         showAlert('Success', 'Listing marked as Sold.')
       } else {
-        await deleteDoc(doc(db, 'b2b-listings', id))
+        const { error: deleteError } = await supabase.from('b2b_listings').delete().eq('id', id)
+        if (deleteError) throw deleteError
         showAlert('Success', 'Listing has been deleted.')
       }
+      void refetch()
     } catch (err) {
       console.error('Error updating listing: ', err)
       showAlert(
@@ -129,10 +109,7 @@ export function ListingsScreen() {
           </div>
         ) : error ? (
           <div className="p-10 text-center">
-            <p className="text-red-500">Error: {error}</p>
-            <p className="text-sm text-gray-500">
-              If this mentions an index, create the suggested Firestore composite index.
-            </p>
+            <p className="text-red-500">{error}</p>
           </div>
         ) : listings.length === 0 ? (
           <div className="p-10 text-center">
@@ -178,7 +155,7 @@ export function ListingsScreen() {
                       <span className="text-sm font-normal text-gray-600">/{l.priceUnit}</span>
                     </p>
                     <p className="mt-1 text-xs text-gray-400">
-                      Posted: {l.createdAt ? l.createdAt.toDate().toLocaleDateString() : 'Just now'}
+                      Posted: {l.createdAt ? new Date(l.createdAt).toLocaleDateString() : 'Just now'}
                     </p>
                   </div>
                 </div>

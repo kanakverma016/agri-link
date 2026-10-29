@@ -1,4 +1,4 @@
-import { jsonError, verifyFirebaseUser } from '@/lib/server/verify-auth'
+import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 import { GeminiError, generateContent } from '@/lib/server/gemini'
 
 export const maxDuration = 60
@@ -36,7 +36,7 @@ Here is the farmer's question:
 `
 
 export async function POST(request: Request) {
-  if (!(await verifyFirebaseUser(request))) return jsonError('Unauthorized', 401)
+  if (!(await verifyUser(request))) return jsonError('Unauthorized', 401)
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
   const questionText = typeof body?.question === 'string' ? body.question.trim() : ''

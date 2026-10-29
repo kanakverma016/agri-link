@@ -1,4 +1,4 @@
-import { jsonError, verifyFirebaseUser } from '@/lib/server/verify-auth'
+import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 
 const MAX_CHARS = 1000
 
@@ -23,7 +23,7 @@ function pcmToWav(pcm: Buffer, sampleRate: number) {
 }
 
 export async function POST(request: Request) {
-  if (!(await verifyFirebaseUser(request))) return jsonError('Unauthorized', 401)
+  if (!(await verifyUser(request))) return jsonError('Unauthorized', 401)
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) return jsonError('Text-to-speech is not configured (GEMINI_API_KEY).', 503)

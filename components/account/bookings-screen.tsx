@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import type { Timestamp } from 'firebase/firestore'
 import { useAuth } from '@/components/providers/auth-provider'
-import { useUserCollection } from '@/lib/use-user-collection'
+import { useLiveQuery } from '@/lib/use-live-query'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { Spinner } from '@/components/ui/spinner'
@@ -13,7 +12,7 @@ type Booking = {
   status: string
   plotName: string
   destination: string
-  bookingDate: Timestamp
+  bookingDate: string
 }
 
 const STATUS_CLASS: Record<string, string> = {
@@ -25,7 +24,12 @@ const STATUS_CLASS: Record<string, string> = {
 
 export function BookingsScreen() {
   const { user } = useAuth()
-  const { items, loading, error } = useUserCollection<Booking>(user?.uid, 'bookings', 'bookingDate')
+  const { items, loading, error } = useLiveQuery<Booking>({
+    table: 'bookings',
+    enabled: Boolean(user),
+    eq: { userId: user?.uid },
+    orderBy: 'bookingDate',
+  })
 
   return (
     <MobileFrame className="bg-gray-100">
@@ -80,7 +84,7 @@ export function BookingsScreen() {
                     <div>
                       <h3 className="font-semibold text-gray-800">{b.serviceType} Booking</h3>
                       <p className="text-sm text-gray-500">
-                        For: {b.bookingDate?.toDate().toLocaleDateString()}
+                        For: {b.bookingDate ? new Date(b.bookingDate).toLocaleDateString() : ''}
                       </p>
                     </div>
                   </div>
