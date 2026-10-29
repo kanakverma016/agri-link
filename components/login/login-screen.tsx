@@ -8,6 +8,20 @@ import { isProfileComplete, useAuth } from '@/components/providers/auth-provider
 const redirectUrl = () =>
   process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`
 
+// Supabase answers a disabled provider with a raw JSON 400 page, so check its public settings first.
+async function isGoogleEnabled() {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/settings`, {
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
+    })
+    if (!res.ok) return true
+    const settings = await res.json()
+    return settings?.external?.google !== false
+  } catch {
+    return true
+  }
+}
+
 type Mode = 'login' | 'register' | 'complete-profile' | 'verify-sent'
 
 const INPUT =
@@ -162,6 +176,11 @@ export function LoginScreen() {
 
   async function handleGoogle() {
     setError('')
+    const googleEnabled = await isGoogleEnabled()
+    if (!googleEnabled) {
+      setError('Google sign-in is not enabled yet. Please use email and password.')
+      return
+    }
     const { data, error: oauthError } = await createClient().auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: redirectUrl(), skipBrowserRedirect: true },
