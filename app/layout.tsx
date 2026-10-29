@@ -23,7 +23,13 @@ export const metadata: Metadata = {
   applicationName: 'SmartKrishi',
   appleWebApp: { capable: true, title: 'SmartKrishi', statusBarStyle: 'black-translucent' },
   formatDetection: { telephone: false },
-  icons: { icon: '/icons/192', apple: '/icons/180' },
+  icons: {
+    icon: [
+      { url: '/icons/icon-48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/icon-180.png', sizes: '180x180', type: 'image/png' }],
+  },
 }
 
 export const viewport: Viewport = {
