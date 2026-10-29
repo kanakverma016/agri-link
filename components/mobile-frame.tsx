@@ -18,6 +18,7 @@ export function MobileFrame({
           fill
           sizes="100vw"
           quality={70}
+          loading="eager"
           className="object-cover object-bottom opacity-90 dark:opacity-30 dark:brightness-75"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-emerald-900/25 dark:from-black/50 dark:to-black/60" />

@@ -9,6 +9,7 @@ const nextConfig = {
       process.env.GCP_API_KEY_2 ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
   },
   images: {
+    qualities: [50, 70, 75],
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: '*.supabase.co' },
