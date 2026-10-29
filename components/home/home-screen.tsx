@@ -10,6 +10,7 @@ import type { ChatDetails, Post } from '@/lib/types'
 import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
+import { useNotifications } from '@/components/providers/notification-provider'
 import { AlertModal, useAlert } from '@/components/ui/alert-modal'
 import { PostCard } from '@/components/home/post-card'
 import { KisanTorchAd, PmKisanAd } from '@/components/home/ad-cards'
@@ -47,6 +48,18 @@ export function HomeScreen() {
   const [showNewChat, setShowNewChat] = useState(false)
   const [activeChat, setActiveChat] = useState<ChatDetails | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const { unread, unreadMessages, registerChatOpener } = useNotifications()
+
+  useEffect(
+    () =>
+      registerChatOpener((chat) => {
+        setShowNotifications(false)
+        setShowMessenger(false)
+        setShowNewChat(false)
+        setActiveChat(chat)
+      }),
+    [registerChatOpener],
+  )
 
   // Open a chat directly when redirected here with ?openChat=true&chatId=...
   useEffect(() => {
@@ -98,11 +111,11 @@ export function HomeScreen() {
 
   return (
     <MobileFrame>
-      <header className="z-20 flex-shrink-0 rounded-b-[2rem] bg-gradient-to-br from-emerald-700 via-teal-700 to-teal-900 px-5 pb-5 pt-5 text-white shadow-lg">
+      <header className="z-20 flex-shrink-0 rounded-b-[2rem] bg-gradient-to-br from-emerald-700 via-teal-700 to-teal-900 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-white shadow-lg sm:px-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 animate-fade-up">
             <p className="text-sm font-semibold text-green-100">Namaste</p>
-            <h1 className="truncate text-2xl font-extrabold">
+            <h1 className="truncate text-xl font-extrabold sm:text-2xl">
               {profile?.name?.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Kisan'}
             </h1>
             {profile?.district && (
@@ -114,18 +127,28 @@ export function HomeScreen() {
           </div>
           <div className="flex items-center gap-2">
             {[
-              { label: 'Weather and advisory', icon: 'ph-cloud-sun', onClick: handleWeather },
-              { label: 'Notifications', icon: 'ph-bell', onClick: () => setShowNotifications(true) },
-              { label: 'Messenger', icon: 'ph-chat-circle-dots', onClick: () => setShowMessenger(true) },
+              { label: 'Weather and advisory', icon: 'ph-cloud-sun', onClick: handleWeather, badge: 0 },
+              { label: 'Notifications', icon: 'ph-bell', onClick: () => setShowNotifications(true), badge: unread },
+              {
+                label: 'Messenger',
+                icon: 'ph-chat-circle-dots',
+                onClick: () => setShowMessenger(true),
+                badge: unreadMessages,
+              },
             ].map((b) => (
               <button
                 key={b.label}
                 type="button"
                 onClick={b.onClick}
-                aria-label={b.label}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 hover:bg-white/25"
+                aria-label={b.badge ? `${b.label}, ${b.badge} unread` : b.label}
+                className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/15 hover:bg-white/25"
               >
                 <i className={`ph ${b.icon} text-2xl`} aria-hidden="true" />
+                {b.badge > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 animate-pop items-center justify-center rounded-full bg-amber-400 px-1 text-[11px] font-extrabold leading-none text-stone-900 ring-2 ring-teal-800">
+                    {b.badge > 9 ? '9+' : b.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -199,7 +222,7 @@ export function HomeScreen() {
       <BottomNav active="home" onHomeClick={handleHome} />
 
       {showCreate && <CreatePostPage onClose={() => setShowCreate(false)} showAlert={showAlert} />}
-      {showNotifications && <NotificationsPage onBack={() => setShowNotifications(false)} />}
+      {showNotifications && <NotificationsPage onBack={() => setShowNotifications(false)} onOpenChat={openChat} />}
       {showWeather && profile && (
         <WeatherPanel
           district={profile.district ?? ''}

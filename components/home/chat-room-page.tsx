@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
 import { useLiveQuery } from '@/lib/use-live-query'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useNotifications } from '@/components/providers/notification-provider'
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition'
 import { useTts } from '@/hooks/use-tts'
 import { cn } from '@/lib/utils'
@@ -51,6 +52,11 @@ export function ChatRoomPage({
   showAlert: (title: string, message: string) => void
 }) {
   const { user } = useAuth()
+  const { setActiveChatId } = useNotifications()
+  useEffect(() => {
+    setActiveChatId(chat.chatId)
+    return () => setActiveChatId(null)
+  }, [chat.chatId, setActiveChatId])
   const {
     items,
     loading,

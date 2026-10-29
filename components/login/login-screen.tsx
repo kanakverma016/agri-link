@@ -257,14 +257,14 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="relative min-h-screen bg-gray-100">
+    <div className="relative min-h-dvh bg-gray-100">
       <div className="absolute inset-0 z-0 h-full w-full" aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={BG_IMAGE} alt="" className="h-full w-full object-cover opacity-30" />
         <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent" />
       </div>
 
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center p-4">
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-green-700">SmartKrishi</h1>
           <p className="text-lg text-gray-600">Your Digital Farming Partner</p>

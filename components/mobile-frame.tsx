@@ -10,7 +10,7 @@ export function MobileFrame({
   className?: string
 }) {
   return (
-    <div className="relative isolate flex min-h-dvh justify-center overflow-hidden bg-[#ecf4f0] md:items-center md:p-6 dark:bg-[#0b1512]">
+    <div className="relative isolate flex h-dvh justify-center overflow-hidden bg-[#ecf4f0] md:items-center md:p-3 lg:p-4 dark:bg-[#0b1512]">
       <div aria-hidden="true" className="absolute inset-0 -z-10 hidden md:block">
         <Image
           src="/images/crops-backdrop.png"
@@ -25,7 +25,7 @@ export function MobileFrame({
 
       <div
         className={cn(
-          'relative isolate flex h-dvh w-full max-w-md flex-col overflow-hidden bg-[var(--neu-bg)] md:h-[min(56rem,calc(100dvh-3rem))] md:max-w-3xl md:rounded-[2rem] md:border md:border-white/60 md:shadow-2xl md:shadow-emerald-950/30 lg:max-w-5xl dark:md:border-white/10',
+          'relative isolate flex h-dvh w-full max-w-md flex-col overflow-hidden bg-[var(--neu-bg)] md:h-full md:max-w-3xl md:rounded-[2rem] md:border md:border-white/60 md:shadow-2xl md:shadow-emerald-950/30 lg:max-w-5xl dark:md:border-white/10',
           className,
         )}
       >

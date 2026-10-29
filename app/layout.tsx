@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Nunito } from 'next/font/google'
+import Script from 'next/script'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import { PwaRegister } from '@/components/pwa'
 import '@phosphor-icons/web/regular'
@@ -44,10 +45,10 @@ const themeInit = `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&m
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={`${nunito.variable} bg-[#ecf4f0] dark:bg-[#0b1512]`}>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
-      </head>
       <body className="font-sans antialiased">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {themeInit}
+        </Script>
         <AuthProvider>{children}</AuthProvider>
         <PwaRegister />
       </body>

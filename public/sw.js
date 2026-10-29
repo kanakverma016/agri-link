@@ -68,3 +68,18 @@ self.addEventListener('fetch', (event) => {
     )
   }
 })
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = (event.notification.data && event.notification.data.url) || '/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      for (const w of windows) {
+        if ('focus' in w) {
+          return w.focus().then(() => ('navigate' in w ? w.navigate(target) : undefined))
+        }
+      }
+      return self.clients.openWindow(target)
+    }),
+  )
+})
