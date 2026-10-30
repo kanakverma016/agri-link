@@ -11,7 +11,9 @@ import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { useLanguage } from '@/components/providers/language-provider'
 import { LanguageToggle } from '@/components/language-toggle'
 
-type Dialog = 'logout' | 'logout-error' | 'coming-soon' | null
+import { ExpertRequestModal } from '@/components/info/expert-request-modal'
+
+type Dialog = 'logout' | 'logout-error' | 'coming-soon' | 'support' | 'expert' | null
 
 function MenuLink({
   href,
@@ -131,7 +133,7 @@ export function MenuScreen() {
             icon="ph-headset"
             color="text-gray-600"
             label={t('Customer Support')}
-            onClick={comingSoon}
+            onClick={() => setDialog('support')}
           />
           <button
             type="button"
@@ -166,6 +168,53 @@ export function MenuScreen() {
         onCancel={() => setDialog(null)}
         onConfirm={() => setDialog(null)}
       />
+      {dialog === 'support' && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+          onClick={() => setDialog(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="support-title"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md animate-fade-up rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-100 text-green-700">
+                  <i className="ph ph-headset text-2xl" aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 id="support-title" className="text-lg font-bold text-gray-800">
+                    {t('Customer Support')}
+                  </h2>
+                  <p className="text-sm text-gray-600">{t('How can we help you today?')}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDialog(null)}
+                aria-label={t('Close')}
+                className="rounded-full p-1 text-gray-500 hover:bg-gray-100"
+              >
+                <i className="ph ph-x text-xl" aria-hidden="true" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDialog('expert')}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 p-3 font-semibold text-white transition-colors hover:bg-green-700"
+            >
+              <i className="ph ph-user-focus text-xl" aria-hidden="true" />
+              {t('Connect to Expert')}
+            </button>
+          </div>
+        </div>
+      )}
+      {dialog === 'expert' && (
+        <ExpertRequestModal policyTitle="Customer Support" onClose={() => setDialog(null)} />
+      )}
       <ConfirmModal
         open={dialog === 'coming-soon'}
         title={t('Coming Soon')}
