@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLiveQuery } from '@/lib/use-live-query'
+import { useProfilePictures } from '@/lib/use-profile-pictures'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useSpeechSearch } from '@/lib/use-speech-search'
 import { useAuth } from '@/components/providers/auth-provider'
@@ -49,11 +50,14 @@ export function MarketplaceScreen() {
     orderBy: 'createdAt',
   })
   const error = loadFailed ? t('Could not load listings.') : null
+  const sellerProfiles = useProfilePictures(listings.map((l) => l.sellerId))
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase()
-    return listings.filter((l) => l.cropName && l.cropName.toLowerCase().includes(term))
-  }, [listings, search])
+    return listings
+      .filter((l) => l.cropName && l.cropName.toLowerCase().includes(term))
+      .map((l) => ({ ...l, sellerProfilePic: sellerProfiles[l.sellerId]?.profilePicture || l.sellerProfilePic }))
+  }, [listings, search, sellerProfiles])
 
   async function contactSeller(listing: Listing) {
     if (!user) return
