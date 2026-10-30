@@ -58,6 +58,7 @@ export function QuestionsScreen() {
     enabled: Boolean(user),
     eq: { userId: user?.uid },
     orderBy: 'createdAt',
+    ascending: true,
   })
   const [text, setText] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -70,6 +71,17 @@ export function QuestionsScreen() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const objectUrlRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const hasScrolledRef = useRef(false)
+
+  const lastQuestion = questions[questions.length - 1]
+  const lastQuestionKey = lastQuestion ? `${lastQuestion.id}:${lastQuestion.status}` : ''
+
+  useEffect(() => {
+    if (loading || !lastQuestionKey) return
+    bottomRef.current?.scrollIntoView({ behavior: hasScrolledRef.current ? 'smooth' : 'auto', block: 'end' })
+    hasScrolledRef.current = true
+  }, [loading, lastQuestionKey])
 
   const speech = useSpeechSearch(
     (transcript) => setText((prev) => (prev ? `${prev} ${transcript}` : transcript)),
@@ -278,6 +290,7 @@ export function QuestionsScreen() {
             onPlay={handlePlay}
           />
         ))}
+        <div ref={bottomRef} aria-hidden="true" />
       </main>
 
       <div className="absolute bottom-20 w-full border-t border-gray-200 bg-gray-100 p-4">

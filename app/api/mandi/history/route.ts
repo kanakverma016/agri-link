@@ -1,5 +1,6 @@
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
-import { GeminiError, generateContent } from '@/lib/server/gemini'
+import { GeminiError } from '@/lib/server/gemini'
+import { generateWithSarvamFallback } from '@/lib/server/ai-fallback'
 
 export const maxDuration = 60
 
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
   const userQuery = `Find the historical daily modal price per quintal for "${crop}" specifically in the "${mandi}" mandi, located in ${district}, ${state}, India, for the past ${days} days (from ${startDate.toDateString()} to ${endDate.toDateString()}). Provide the data ONLY as a valid JSON array of objects. Each object must have exactly two keys: "date" (string in "YYYY-MM-DD" format) and "modal_price" (number). Example: [{"date": "2025-10-21", "modal_price": 1350}, {"date": "2025-10-20", "modal_price": 1320}]. Do NOT include any text, conversation, markdown, or explanation before or after the JSON array. If no data is found, return an empty JSON array [].`
 
   try {
-    const { text } = await generateContent({
+    const { text } = await generateWithSarvamFallback({
       contents: [{ parts: [{ text: userQuery }] }],
       generationConfig: { responseMimeType: 'application/json' },
       systemInstruction: {
@@ -38,7 +39,8 @@ export async function POST(request: Request) {
       },
     })
 
-    const jsonText = text.replace(/^```json\s*|```\s*$/g, '').trim()
+    const stripped = text.replace(/^```json\s*|```\s*$/g, '').trim()
+    const jsonText = stripped.match(/\[[\s\S]*\]/)?.[0] ?? stripped
     let parsed: unknown
     try {
       parsed = JSON.parse(jsonText)

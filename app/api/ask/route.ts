@@ -1,5 +1,6 @@
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
-import { GeminiError, generateContent } from '@/lib/server/gemini'
+import { GeminiError } from '@/lib/server/gemini'
+import { generateWithSarvamFallback } from '@/lib/server/ai-fallback'
 import { extractModelConfidence } from '@/lib/answer-confidence'
 
 export const maxDuration = 60
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
   if (imageBase64) parts.push({ inlineData: { mimeType: imageMimeType, data: imageBase64 } })
 
   try {
-    const { text } = await generateContent({ contents: [{ parts }] }, 1)
+    const { text } = await generateWithSarvamFallback({ contents: [{ parts }] }, 1)
     const { answer, confidence } = extractModelConfidence(text)
     return Response.json({ answer, confidence })
   } catch (err) {
