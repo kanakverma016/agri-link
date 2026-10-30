@@ -6,7 +6,7 @@ import { useLanguage } from '@/components/providers/language-provider'
 const PM_KISAN_VIDEO =
   'https://firebasestorage.googleapis.com/v0/b/smaart-krishi.firebasestorage.app/o/videoplayback.mp4?alt=media&token=ef28d05e-954a-441f-8bae-a909ef0c798b'
 const KISAN_TORCH_IMAGE =
-  'https://firebasestorage.googleapis.com/v0/b/smaart-krishi.firebasestorage.app/o/globeam-sultan-heavy-range-of-kisan-torch-500x500.webp?alt=media&token=229c82fb-9702-45a6-8967-992d2f4e82d0'
+  'https://m.media-amazon.com/images/I/612HxTopp5L.jpg'
 
 function AdHeader({ title }: { title: string }) {
   const { t } = useLanguage()
@@ -45,8 +45,9 @@ export function KisanTorchAd() {
       <img
         src={KISAN_TORCH_IMAGE}
         alt={t('Kisan Torch Ad')}
-        className="h-auto max-h-96 w-full object-cover"
-      />
+        referrerPolicy="no-referrer"
+  className="h-auto w-full object-contain"
+  />
       <div className="p-4">
         <p className="font-semibold text-gray-700">{t('Heavy-duty torch for all your farm needs.')}</p>
       </div>
