@@ -199,6 +199,13 @@ export function StartCycleModal({ open, onClose, onError, userId, plotId }: Moda
   )
 }
 
+/** Keeps the chosen day but stamps the current time so same-day activities stay in logging order. */
+function withCurrentTime(isoDay: string) {
+  const [y, m, d] = isoDay.split('-').map(Number)
+  const now = new Date()
+  return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).toISOString()
+}
+
 export function AddActivityModal({
   open,
   onClose,
@@ -248,7 +255,7 @@ export function AddActivityModal({
         .insert({
           userId,
           cycleId,
-          date: new Date(date).toISOString(),
+          date: withCurrentTime(date),
           type: finalType,
           description,
           cost: parseFloat(cost) || 0,
