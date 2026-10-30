@@ -13,7 +13,6 @@ import { BottomNav } from '@/components/bottom-nav'
 import { Spinner } from '@/components/ui/spinner'
 import { AlertModal, useAlert } from '@/components/ui/alert-modal'
 import { QACard, type QuestionDoc } from '@/components/questions/qa-card'
-import { readStoredAnswer, withStoredConfidence } from '@/lib/answer-confidence'
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
@@ -170,10 +169,7 @@ export function QuestionsScreen() {
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error ?? `API request failed with status ${res.status}`)
 
-      await updateQuestion(questionId, {
-        status: 'answered',
-        answerText: withStoredConfidence(data.answer, data.confidence),
-      })
+      await updateQuestion(questionId, { status: 'answered', answerText: data.answer })
       void pregenerateAudio(questionId, data.answer)
     } catch (error) {
       console.error('Error processing question:', error)
@@ -223,7 +219,7 @@ export function QuestionsScreen() {
         src = q.audioURL
       } else {
         setAudioLoadingId(q.id)
-        const blob = await fetchSpeech(readStoredAnswer(q.answerText).answer, lang)
+        const blob = await fetchSpeech(q.answerText ?? '', lang)
         src = URL.createObjectURL(blob)
         objectUrlRef.current = src
       }

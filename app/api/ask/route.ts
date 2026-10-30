@@ -1,6 +1,5 @@
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 import { GeminiError, generateContent } from '@/lib/server/gemini'
-import { extractModelConfidence } from '@/lib/answer-confidence'
 
 export const maxDuration = 60
 
@@ -68,10 +67,6 @@ ${spec.prevention}
 
 ${spec.disclaimer}
 ${spec.disclaimerText}
-
-FINALLY, on a new last line, honestly rate how confident you are that your advice is correct and safe for this exact situation, as a whole number from 0 to 100. Write it as: CONFIDENCE: <number>
-Use a LOW number (below 50) when the question is vague, the image is unclear, the diagnosis needs lab or field inspection, or several causes are possible. Use 75 or above only when the problem and fix are clear.
-This CONFIDENCE line is required for every farming answer (never for the refusal text), always in English letters, with no other text after it.
 ---
 Here is the farmer's question:
 "${question}"
@@ -103,8 +98,7 @@ export async function POST(request: Request) {
 
   try {
     const { text } = await generateContent({ contents: [{ parts }] }, 1)
-    const { answer, confidence } = extractModelConfidence(text)
-    return Response.json({ answer, confidence })
+    return Response.json({ answer: text })
   } catch (err) {
     if (err instanceof GeminiError) return jsonError(err.message, err.status)
     return jsonError('Failed to get an answer.', 500)
