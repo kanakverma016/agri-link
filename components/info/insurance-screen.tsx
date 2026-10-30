@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { ExpertRequestModal } from '@/components/info/expert-request-modal'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { useLanguage } from '@/components/providers/language-provider'
@@ -70,6 +72,7 @@ const POLICIES: Policy[] = [
 
 export function InsuranceScreen() {
   const { t } = useLanguage()
+  const [expertFor, setExpertFor] = useState<string | null>(null)
   return (
     <MobileFrame>
       <nav className="z-20 w-full flex-shrink-0 bg-white shadow-sm">
@@ -116,28 +119,40 @@ export function InsuranceScreen() {
                 </ul>
               </div>
             )}
-            {p.href ? (
-              <a
-                href={p.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex w-full items-center justify-center rounded-lg p-2 font-semibold text-white transition-colors ${p.button}`}
-              >
-                {t(p.cta)}
-                <i className="ph ph-arrow-square-out ml-2 text-lg" aria-hidden="true" />
-              </a>
-            ) : (
+            <div className="flex items-stretch gap-2">
+              {p.href ? (
+                <a
+                  href={p.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex min-w-0 flex-1 items-center justify-center rounded-lg p-2 text-center text-sm font-semibold text-white transition-colors ${p.button}`}
+                >
+                  <span>{t(p.cta)}</span>
+                  <i className="ph ph-arrow-square-out ml-1.5 flex-shrink-0 text-lg" aria-hidden="true" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className={`flex min-w-0 flex-1 cursor-not-allowed items-center justify-center rounded-lg p-2 text-center text-sm font-semibold text-white ${p.button}`}
+                >
+                  {t(p.cta)}
+                </button>
+              )}
               <button
                 type="button"
-                disabled
-                className={`flex w-full cursor-not-allowed items-center justify-center rounded-lg p-2 font-semibold text-white ${p.button}`}
+                onClick={() => setExpertFor(p.title)}
+                className={`flex min-w-0 flex-1 items-center justify-center rounded-lg border-2 bg-white p-2 text-center text-sm font-semibold transition-colors hover:bg-gray-50 ${p.border} ${p.text}`}
               >
-                {t(p.cta)}
+                <i className="ph ph-headset mr-1.5 flex-shrink-0 text-lg" aria-hidden="true" />
+                <span>{t('Connect to Expert')}</span>
               </button>
-            )}
+            </div>
           </section>
         ))}
       </div>
+
+      {expertFor && <ExpertRequestModal policyTitle={expertFor} onClose={() => setExpertFor(null)} />}
 
       <BottomNav active="home" />
     </MobileFrame>
