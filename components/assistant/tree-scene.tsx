@@ -6,6 +6,7 @@ type TreeSceneProps = {
   awake: boolean
   speaking: boolean
   listening?: boolean
+  thinking?: boolean
   onReady?: () => void
   className?: string
 }
@@ -17,19 +18,21 @@ const FIREFLY_COUNT = 36
  * Renders the Krishi Dost tree with three.js. The scene reads `awake` and
  * `speaking` from refs so toggling them animates the tree without rebuilding it.
  */
-export function TreeScene({ awake, speaking, listening = false, onReady, className }: TreeSceneProps) {
+export function TreeScene({ awake, speaking, listening = false, thinking = false, onReady, className }: TreeSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const awakeRef = useRef(awake)
   const speakingRef = useRef(speaking)
   const listeningRef = useRef(listening)
+  const thinkingRef = useRef(thinking)
   const onReadyRef = useRef(onReady)
 
   useEffect(() => {
     awakeRef.current = awake
     speakingRef.current = speaking
     listeningRef.current = listening
+    thinkingRef.current = thinking
     onReadyRef.current = onReady
-  }, [awake, speaking, listening, onReady])
+  }, [awake, speaking, listening, thinking, onReady])
 
   useEffect(() => {
     const container = containerRef.current
@@ -129,6 +132,7 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
       const eyeWhiteMaterial = new THREE.MeshStandardMaterial({ color: 0xfffaf0, roughness: 0.35 })
       const pupilMaterial = new THREE.MeshStandardMaterial({ color: 0x2a1408, roughness: 0.25 })
       const glintMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff })
+      const pupils: InstanceType<typeof THREE.Mesh>[] = []
       const eyes = [-1, 1].map((side) => {
         const eye = new THREE.Group()
         eye.position.set(FACE_X + side * 0.052, 0.6, FACE_Z - 0.006)
@@ -140,6 +144,7 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
         const glint = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 8, 6), glintMaterial)
         glint.position.set(0.007, 0.008, 0.02)
         eye.add(white, pupil, glint)
+        pupils.push(pupil)
         face.add(eye)
         return eye
       })
@@ -241,6 +246,8 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
       let awakeLevel = 0
       let speakLevel = 0
       let listenLevel = 0
+      let thinkLevel = 0
+      let orbitTime = 0
       let wakeBounce = 0
       let wasAwake = false
       let mouthOpen = 0
@@ -273,6 +280,8 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
         awakeLevel = smooth(awakeLevel, isAwake ? 1 : 0, 3.2, dt)
         speakLevel = smooth(speakLevel, speakingRef.current ? 1 : 0, 6, dt)
         listenLevel = smooth(listenLevel, listeningRef.current ? 1 : 0, 5, dt)
+        thinkLevel = smooth(thinkLevel, thinkingRef.current ? 1 : 0, 4, dt)
+        orbitTime += dt * (1 + thinkLevel * 2.6 + speakLevel * 0.6)
 
         if (material && colorAttr && awakeColors && sleepColors) {
           const blend = Math.round(awakeLevel * 50) / 50
@@ -296,7 +305,19 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
         const droop = (1 - awakeLevel) * 0.09
         const lean = listenLevel * 0.06
         const sway = reduceMotion ? 0 : Math.sin(t * 0.6) * 0.04
-        pivot.rotation.set(droop + lean, sway + pointerX * 0.08, Math.sin(t * 0.7) * 0.01 * awakeLevel + droop * 0.4)
+        const nod = reduceMotion ? 0 : Math.sin(t * 5.2) * 0.014 * speakLevel
+        const ponder = reduceMotion ? 0 : Math.sin(t * 1.6) * 0.035 * thinkLevel
+        pivot.rotation.set(
+          droop + lean + nod,
+          sway + pointerX * 0.08 + ponder,
+          Math.sin(t * 0.7) * 0.01 * awakeLevel + droop * 0.4 + ponder * 0.5,
+        )
+
+        // While thinking the eyes glance up and to the side, like someone working something out.
+        pupils.forEach((pupil) => {
+          pupil.position.x = thinkLevel * 0.008
+          pupil.position.y = -0.002 + thinkLevel * 0.009
+        })
 
         if (t > nextBlinkAt) {
           blink = 1
@@ -330,13 +351,13 @@ export function TreeScene({ awake, speaking, listening = false, onReady, classNa
 
         for (let i = 0; i < FIREFLY_COUNT; i++) {
           const f = fireflySeeds[i]
-          const a = t * f.speed + f.phase
+          const a = orbitTime * f.speed + f.phase
           fireflyPositions[i * 3] = Math.cos(a) * f.radius
           fireflyPositions[i * 3 + 1] = f.height + Math.sin(a * 1.7) * 0.12
           fireflyPositions[i * 3 + 2] = Math.sin(a) * f.radius
         }
         fireflyGeometry.attributes.position.needsUpdate = true
-        ;(fireflies.material as InstanceType<typeof THREE.PointsMaterial>).opacity = awakeLevel * (0.55 + speakLevel * 0.35)
+        ;(fireflies.material as InstanceType<typeof THREE.PointsMaterial>).opacity = awakeLevel * (0.55 + speakLevel * 0.35 + thinkLevel * 0.1)
 
         renderer.render(scene, camera)
       }

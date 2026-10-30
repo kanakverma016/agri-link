@@ -5,6 +5,7 @@ import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
+import { ReplyBubble } from '@/components/assistant/reply-bubble'
 
 const TreeScene = dynamic(() => import('@/components/assistant/tree-scene').then((m) => m.TreeScene), {
   ssr: false,
@@ -18,7 +19,30 @@ const SILENCE_AFTER_SPEECH_MS = 1_600
 const SPEECH_RMS_THRESHOLD = 0.035
 const BAR_SHAPE = [0.45, 0.75, 1, 0.8, 0.55, 0.85, 0.5]
 
-const QUICK_QUESTIONS = ['मेरी फसल का हाल बताओ', 'आज खेत में क्या करूँ?', 'अब तक कितना खर्च हुआ?']
+const QUICK_QUESTIONS = [
+  { text: 'मेरी फसल का हाल बताओ', icon: 'ph-plant' },
+  { text: 'आज खेत में क्या करूँ?', icon: 'ph-sun-horizon' },
+  { text: 'अब तक कितना खर्च हुआ?', icon: 'ph-currency-inr' },
+  { text: 'सिंचाई कब करनी चाहिए?', icon: 'ph-drop' },
+]
+
+const LEAVES = [
+  { left: '6%', delay: 0, duration: 8, drift: 40, size: 18 },
+  { left: '19%', delay: 2.4, duration: 9.5, drift: -30, size: 14 },
+  { left: '33%', delay: 5.1, duration: 7.5, drift: 28, size: 20 },
+  { left: '52%', delay: 1.2, duration: 10, drift: -44, size: 15 },
+  { left: '68%', delay: 3.6, duration: 8.5, drift: 36, size: 19 },
+  { left: '82%', delay: 6.2, duration: 9, drift: -26, size: 16 },
+  { left: '92%', delay: 0.8, duration: 7.8, drift: -38, size: 14 },
+]
+
+const PHASE_ICON: Record<Phase, string> = {
+  sleeping: 'ph-moon-stars',
+  idle: 'ph-ear',
+  listening: 'ph-microphone',
+  thinking: 'ph-sparkle',
+  speaking: 'ph-speaker-high',
+}
 
 type Phase = 'sleeping' | 'idle' | 'listening' | 'thinking' | 'speaking'
 type Turn = { role: 'user' | 'assistant'; text: string }
@@ -310,7 +334,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
         if (discardRef.current) return
         const text = (finalText || interimText).trim()
         if (errorCode === 'not-allowed' || errorCode === 'service-not-allowed') {
-          setNotice('माइक की अनुमति नहीं मिली। फ़ोन की सेटिंग में माइक की अनुमति दीजिए।')
+          setNotice('माइक की अनुमति नहीं मिल��। फ़ोन की सेटिंग में माइक की अनुमति दीजिए।')
           updatePhase('idle')
         } else if (errorCode === 'network') {
           setNotice('इंटरनेट नहीं चल रहा। नेटवर्क देखकर फिर से बोलिए।')
@@ -504,6 +528,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
   const listening = phase === 'listening'
   const speaking = phase === 'speaking'
   const busy = phase === 'thinking'
+  const thinkingStage = busy
 
   const micLabel =
     phase === 'listening'
@@ -567,10 +592,19 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
           <header className="flex flex-shrink-0 items-center justify-between gap-3 px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <div className="min-w-0">
               <h2 className="text-lg font-extrabold leading-tight">कृषि दोस्त</h2>
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-200">
-                <span
+              <p
+                className={cn(
+                  'mt-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ring-1 transition-colors duration-300',
+                  phase === 'sleeping' && 'bg-white/5 text-stone-300 ring-white/10',
+                  phase === 'idle' && 'bg-emerald-400/15 text-emerald-100 ring-emerald-300/30',
+                  phase === 'listening' && 'bg-white text-emerald-900 ring-white',
+                  phase === 'thinking' && 'bg-amber-300/20 text-amber-100 ring-amber-200/40',
+                  phase === 'speaking' && 'bg-emerald-400 text-emerald-950 ring-emerald-200',
+                )}
+              >
+                <i
                   aria-hidden="true"
-                  className={cn('h-2 w-2 rounded-full', awake ? 'bg-emerald-400' : 'bg-stone-400')}
+                  className={cn('ph-fill text-sm', PHASE_ICON[phase], phase === 'thinking' && 'animate-pulse')}
                 />
                 <span aria-live="polite">{PHASE_LABEL[phase]}</span>
               </p>
@@ -611,12 +645,58 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
             type="button"
             onClick={handlePrimaryAction}
             aria-label={awake ? micLabel : 'Wake up Krishi Dost'}
-            className="relative min-h-40 w-full flex-1 cursor-pointer"
+            className="relative min-h-40 w-full flex-1 cursor-pointer overflow-hidden"
           >
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+              <div
+                className={cn(
+                  'absolute left-1/2 top-[48%] h-[85%] w-[85%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(110,231,183,0.38),rgba(16,185,129,0.12)_55%,transparent)] transition-opacity duration-700',
+                  awake ? 'animate-spotlight-pulse opacity-100' : 'opacity-20',
+                  thinkingStage && 'bg-[radial-gradient(closest-side,rgba(252,211,77,0.32),rgba(16,185,129,0.1)_55%,transparent)]',
+                )}
+              />
+              {speaking && (
+                <div className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2">
+                  {[0, 0.85, 1.7].map((delay) => (
+                    <span
+                      key={delay}
+                      style={{ animationDelay: `${delay}s` }}
+                      className="absolute left-1/2 top-1/2 -ml-28 -mt-28 h-56 w-56 animate-sound-ring rounded-full border-2 border-emerald-300/50 motion-reduce:animate-none"
+                    />
+                  ))}
+                </div>
+              )}
+              {listening && (
+                <span
+                  style={{ transform: `translate(-50%, -50%) scale(${0.9 + level * 0.5})` }}
+                  className="absolute left-1/2 top-[52%] h-56 w-56 rounded-full border-2 border-white/60 transition-transform duration-100"
+                />
+              )}
+              {awake &&
+                LEAVES.map((leaf, i) => (
+                  <i
+                    key={i}
+                    style={
+                      {
+                        left: leaf.left,
+                        fontSize: leaf.size,
+                        animationDelay: `${leaf.delay}s`,
+                        animationDuration: `${speaking ? leaf.duration * 0.6 : leaf.duration}s`,
+                        '--drift': `${leaf.drift}px`,
+                      } as React.CSSProperties
+                    }
+                    className="ph-fill ph-leaf absolute bottom-6 animate-leaf-drift text-emerald-300/80 motion-reduce:hidden"
+                  />
+                ))}
+              <div className="absolute inset-x-0 bottom-0 h-[16%] rounded-t-[50%] bg-gradient-to-t from-emerald-950 via-emerald-900/80 to-emerald-700/30" />
+              <div className="absolute -left-[15%] bottom-0 h-[10%] w-[70%] rounded-t-[60%] bg-emerald-800/60" />
+              <div className="absolute -right-[10%] bottom-0 h-[12%] w-[65%] rounded-t-[60%] bg-teal-900/70" />
+            </div>
             <TreeScene
               awake={awake}
               speaking={speaking}
               listening={listening}
+              thinking={thinkingStage}
               onReady={() => setSceneReady(true)}
               className="absolute inset-0"
             />
@@ -632,28 +712,27 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
 
           <div className="flex max-h-[34dvh] min-h-[7rem] flex-shrink-0 flex-col gap-2 overflow-y-auto px-4 pb-2 pt-1" aria-live="polite">
             {heard && (
-              <p className="self-end rounded-2xl rounded-br-md bg-emerald-400 px-3.5 py-2 text-sm font-semibold text-emerald-950">
+              <p className="animate-fade-up flex max-w-[88%] items-start gap-2 self-end rounded-2xl rounded-br-md bg-emerald-400 px-3.5 py-2 text-sm font-semibold text-emerald-950 shadow-md shadow-black/20">
+                <i className="ph-fill ph-microphone mt-0.5 flex-shrink-0 text-emerald-800" aria-hidden="true" />
                 {heard}
               </p>
             )}
-            {reply && (
-              <p
-                key={reply}
-                className="animate-fade-up self-start rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-base leading-relaxed"
+            {reply && !busy && <ReplyBubble key={reply} text={reply} speaking={speaking} audioRef={audioRef} />}
+            {busy && (
+              <div
+                className="animate-fade-up flex items-center gap-2.5 self-start rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 ring-1 ring-white/10"
+                role="status"
               >
-                {reply}
-              </p>
-            )}
-            {busy && !reply && (
-              <div className="flex items-center gap-1.5 self-start rounded-2xl rounded-bl-md bg-white/10 px-4 py-4" role="status">
-                <span className="sr-only">Krishi Dost is thinking</span>
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    style={{ animationDelay: `${i * 150}ms` }}
-                    className="h-2 w-2 animate-bob rounded-full bg-emerald-200"
-                  />
-                ))}
+                <span className="flex items-center gap-1.5">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      style={{ animationDelay: `${i * 150}ms` }}
+                      className="h-2 w-2 animate-bob rounded-full bg-amber-200"
+                    />
+                  ))}
+                </span>
+                <span className="text-sm font-semibold text-emerald-100">आपका खेत देखकर सोच रहा हूँ</span>
               </div>
             )}
             {notice && (
@@ -667,13 +746,14 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
             <div className="flex flex-shrink-0 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
               {QUICK_QUESTIONS.map((q) => (
                 <button
-                  key={q}
+                  key={q.text}
                   type="button"
                   disabled={busy}
-                  onClick={() => askQuick(q)}
-                  className="flex-shrink-0 rounded-full bg-emerald-400/15 px-3.5 py-2 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-300/30 hover:bg-emerald-400/25 disabled:opacity-40"
+                  onClick={() => askQuick(q.text)}
+                  className="flex flex-shrink-0 items-center gap-2 rounded-full bg-emerald-400/15 px-3.5 py-2 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-300/30 transition-all hover:bg-emerald-400/25 active:scale-95 disabled:opacity-40"
                 >
-                  {q}
+                  <i className={cn('ph-fill text-base text-emerald-300', q.icon)} aria-hidden="true" />
+                  {q.text}
                 </button>
               ))}
             </div>
