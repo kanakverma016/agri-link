@@ -244,41 +244,41 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         aria-live="polite"
         className="pointer-events-none fixed inset-x-0 top-0 z-[120] flex flex-col items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]"
       >
-        {toasts.map((t) => (
+        {toasts.map((toast) => (
           <div
-            key={t.id}
-            role={t.kind === 'alert' ? 'alert' : 'status'}
+            key={toast.id}
+            role={toast.kind === 'alert' ? 'alert' : 'status'}
             className="neu pointer-events-auto flex w-full max-w-sm animate-fade-up items-center gap-3 rounded-2xl p-3 ring-1 ring-green-700/10"
           >
             <button
               type="button"
               onClick={() => {
-                dismiss(t.id)
-                if (t.chat) openChat(t.chat)
+                dismiss(toast.id)
+                if (toast.chat) openChat(toast.chat)
               }}
               className="flex min-w-0 flex-1 items-center gap-3 text-left"
             >
-              {t.avatar ? (
+              {toast.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={t.avatar} alt="" className="h-11 w-11 flex-shrink-0 rounded-full object-cover" />
+                <img src={toast.avatar} alt="" className="h-11 w-11 flex-shrink-0 rounded-full object-cover" />
               ) : (
                 <span
                   className={cn(
                     'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full',
-                    KIND_STYLE[t.kind].tone,
+                    KIND_STYLE[toast.kind].tone,
                   )}
                 >
-                  <i className={`ph-fill ${KIND_STYLE[t.kind].icon} text-2xl`} aria-hidden="true" />
+                  <i className={`ph-fill ${KIND_STYLE[toast.kind].icon} text-2xl`} aria-hidden="true" />
                 </span>
               )}
               <span className="min-w-0">
-                <span className="block truncate text-sm font-extrabold text-stone-800">{t.title}</span>
-                <span className="block truncate text-sm text-stone-600">{t.body}</span>
+                <span className="block truncate text-sm font-extrabold text-stone-800">{toast.title}</span>
+                <span className="block truncate text-sm text-stone-600">{toast.body}</span>
               </span>
             </button>
             <button
               type="button"
-              onClick={() => dismiss(t.id)}
+              onClick={() => dismiss(toast.id)}
               aria-label={t('Dismiss notification')}
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-stone-500 hover:bg-black/5"
             >
