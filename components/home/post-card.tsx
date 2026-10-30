@@ -5,8 +5,10 @@ import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { Post } from '@/lib/types'
 import { FeedVideo } from '@/components/home/feed-video'
+import { useLanguage } from '@/components/providers/language-provider'
 
 export function PostCard({ post, currentUid }: { post: Post; currentUid: string }) {
+  const { t, locale } = useLanguage()
   const isLiked = post.likes?.includes(currentUid) ?? false
 
   async function toggleLike() {
@@ -24,9 +26,9 @@ export function PostCard({ post, currentUid }: { post: Post; currentUid: string 
           className="mr-3 h-10 w-10 rounded-full object-cover"
         />
         <div>
-          <p className="font-semibold text-gray-800">{post.authorName || 'Anonymous User'}</p>
+          <p className="font-semibold text-gray-800">{post.authorName || t('Anonymous User')}</p>
           <p className="text-xs text-gray-500">
-            {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Just now'}
+            {post.createdAt ? new Date(post.createdAt).toLocaleDateString(locale) : t('Just now')}
           </p>
         </div>
       </div>
@@ -35,7 +37,7 @@ export function PostCard({ post, currentUid }: { post: Post; currentUid: string 
           <FeedVideo src={post.videoUrl} />
         ) : post.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={post.imageUrl} alt="Post" className="h-auto max-h-96 w-full object-cover" />
+          <img src={post.imageUrl} alt={t('Post')} className="h-auto max-h-96 w-full object-cover" />
         ) : null}
       </div>
       <div className="p-4">
@@ -58,7 +60,7 @@ export function PostCard({ post, currentUid }: { post: Post; currentUid: string 
           type="button"
           onClick={toggleLike}
           aria-pressed={isLiked}
-          aria-label={isLiked ? 'Unlike post' : 'Like post'}
+          aria-label={isLiked ? t('Unlike post') : t('Like post')}
           className={cn('flex items-center space-x-2 hover:text-red-500', isLiked && 'text-red-500')}
         >
           <i className={cn('ph ph-heart text-2xl', isLiked && 'ph-fill')} aria-hidden="true" />
@@ -66,7 +68,7 @@ export function PostCard({ post, currentUid }: { post: Post; currentUid: string 
         </button>
         <button
           type="button"
-          aria-label="Comments"
+          aria-label={t('Comments')}
           className="flex items-center space-x-2 hover:text-blue-500"
         >
           <i className="ph ph-chat-circle-dots text-2xl" aria-hidden="true" />

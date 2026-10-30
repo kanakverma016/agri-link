@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api-client'
 import { useSpeechSearch } from '@/lib/use-speech-search'
 import { COMMON_CROPS, isFruit, parseMandiPrices, toEnglishCrop, type PriceRow } from '@/lib/mandi'
 import { Spinner } from '@/components/ui/spinner'
+import { useLanguage } from '@/components/providers/language-provider'
 import { PriceChart, type HistoryPoint } from '@/components/mandi/price-chart'
 import type { Location } from '@/components/mandi/mandi-location-modal'
 
@@ -29,6 +30,7 @@ export function LivePrices({
   location: Location
   onChangeLocation: () => void
 }) {
+  const { t, speechLang } = useLanguage()
   const [query, setQuery] = useState('')
   const [crop, setCrop] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -55,7 +57,7 @@ export function LivePrices({
       setSources([])
       setError(null)
       if (!location.district || !location.state) {
-        setError('Please select a location first.')
+        setError(t('Please select a location first.'))
         return
       }
       const english = toEnglishCrop(input)
@@ -72,12 +74,12 @@ export function LivePrices({
         setRows(parseMandiPrices(res.text))
         setSources(res.sources)
       } catch (e) {
-        setError(`Error: ${e instanceof Error ? e.message : 'Failed to load prices'}`)
+        setError(`${t('Error:')} ${e instanceof Error ? e.message : t('Failed to load prices')}`)
       } finally {
         setLoading(false)
       }
     },
-    [location.district, location.state],
+    [location.district, location.state, t],
   )
 
   const lastLocationKey = `${location.state}|${location.district}`
@@ -102,47 +104,47 @@ export function LivePrices({
       days,
     })
       .then((r) => !cancelled && setHistory(r.data))
-      .catch((e) => !cancelled && setChartError(`Error: ${e instanceof Error ? e.message : 'Failed to load chart'}`))
+      .catch((e) => !cancelled && setChartError(`${t('Error:')} ${e instanceof Error ? e.message : t('Failed to load chart')}`))
       .finally(() => !cancelled && setChartLoading(false))
     return () => {
       cancelled = true
     }
-  }, [chartMandi, days, crop, location.district, location.state])
+  }, [chartMandi, days, crop, location.district, location.state, t])
 
   const speech = useSpeechSearch((text) => {
     setQuery(text)
     if (text) fetchPrices(text)
-  }, 'hi-IN')
+  }, speechLang)
 
-  const units = fruit ? 'kg' : 'Quintal'
+  const units = fruit ? t('kg') : t('Quintal')
   const divisor = fruit ? 100 : 1
 
   return (
-    <section className="space-y-4" aria-label="Live mandi prices">
+    <section className="space-y-4" aria-label={t('Live mandi prices')}>
       <div className="neu rounded-2xl p-4">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100">
               <i className="ph-fill ph-chart-line-up text-xl text-green-700" aria-hidden="true" />
             </span>
-            Live Mandi Prices
+            {t('Live Mandi Prices')}
           </h2>
           <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">
             <i className="ph-fill ph-broadcast" aria-hidden="true" />
-            Live
+            {t('Live')}
           </span>
         </div>
         <div className="mb-4 rounded-xl bg-gray-50 p-3">
           <div className="flex items-center justify-between">
             <p className="flex items-center text-sm text-gray-600">
               <i className="ph ph-map-pin mr-1 text-green-600" aria-hidden="true" />
-              Location:{' '}
+              {t('Location:')}{' '}
               <span className="ml-1 font-medium">
-                {location.district && location.state ? `${location.district}, ${location.state}` : 'Location not set'}
+                {location.district && location.state ? `${location.district}, ${location.state}` : t('Location not set')}
               </span>
             </p>
             <button type="button" onClick={onChangeLocation} className="text-sm font-medium text-green-700 hover:underline">
-              Change
+              {t('Change')}
             </button>
           </div>
         </div>
@@ -154,14 +156,14 @@ export function LivePrices({
           }}
         >
           <label htmlFor="crop-search-input" className="sr-only">
-            Search crop
+            {t('Search crop')}
           </label>
           <input
             id="crop-search-input"
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Enter crop name (e.g., Wheat) or use mic"
+            placeholder={t('Enter crop name (e.g., Wheat) or use mic')}
             className="w-full rounded-xl border border-gray-300 p-4 pl-12 pr-12"
           />
           <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
@@ -169,7 +171,7 @@ export function LivePrices({
             <button
               type="button"
               onClick={speech.start}
-              aria-label="Search by voice"
+              aria-label={t('Search by voice')}
               className={`absolute right-4 top-1/2 -translate-y-1/2 ${speech.listening ? 'animate-pulse text-red-500' : 'text-gray-500 hover:text-blue-600'}`}
             >
               <i className="ph ph-microphone text-2xl" aria-hidden="true" />
@@ -179,7 +181,7 @@ export function LivePrices({
       </div>
 
       <div className="neu rounded-2xl p-4">
-        <h3 className="text-md mb-3 font-semibold text-gray-700">Popular Crops</h3>
+        <h3 className="text-md mb-3 font-semibold text-gray-700">{t('Popular Crops')}</h3>
         <div className="grid grid-cols-3 gap-3">
           {COMMON_CROPS.map((c) => (
             <button
@@ -194,7 +196,7 @@ export function LivePrices({
               <span className={`mb-2 flex h-12 w-12 items-center justify-center rounded-full ${c.bg}`} aria-hidden="true">
                 <i className={`ph-fill ${c.icon} text-2xl ${c.fg}`} />
               </span>
-              <span className="text-center text-xs font-semibold text-gray-700">{c.name}</span>
+              <span className="text-center text-xs font-semibold text-gray-700">{t(c.name)}</span>
             </button>
           ))}
         </div>
@@ -205,9 +207,9 @@ export function LivePrices({
           <div className="neu rounded-2xl p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-md font-semibold text-gray-800">
-                Today&apos;s Prices for <span className="text-green-700">{crop}</span>:
+                {t('Today\'s Prices for')} <span className="text-green-700">{crop}</span>:
               </h3>
-              <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">Live</span>
+              <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">{t('Live')}</span>
             </div>
             <div className="min-h-[100px]" aria-live="polite">
               {loading && (
@@ -215,7 +217,7 @@ export function LivePrices({
                   <div className="mb-3 flex justify-center">
                     <Spinner />
                   </div>
-                  <p className="text-gray-500">Fetching latest data...</p>
+                  <p className="text-gray-500">{t('Fetching latest data...')}</p>
                 </div>
               )}
               {error && (
@@ -231,27 +233,27 @@ export function LivePrices({
                       <tr className="border-b text-xs uppercase text-gray-500">
                         <th className="px-4 py-3">
                           <i className="ph ph-storefront mr-1 align-middle text-base" aria-hidden="true" />
-                          Market
+                          {t('Market')}
                         </th>
                         <th className="px-2 py-3">
                           <i className="ph ph-plant mr-1 align-middle text-base" aria-hidden="true" />
-                          Variety
+                          {t('Variety')}
                         </th>
                         <th className="px-2 py-3 text-right">
                           <i className="ph ph-trend-down mr-1 align-middle text-base text-blue-600" aria-hidden="true" />
-                          Min (₹/{units})
+                          {t('Min')} (₹/{units})
                         </th>
                         <th className="px-2 py-3 text-right">
                           <i className="ph ph-trend-up mr-1 align-middle text-base text-red-600" aria-hidden="true" />
-                          Max (₹/{units})
+                          {t('Max')} (₹/{units})
                         </th>
                         <th className="px-2 py-3 text-right">
                           <i className="ph ph-currency-inr mr-1 align-middle text-base text-green-700" aria-hidden="true" />
-                          Modal (₹/{units})
+                          {t('Modal')} (₹/{units})
                         </th>
                         <th className="px-2 py-3">
                           <i className="ph ph-calendar-blank mr-1 align-middle text-base" aria-hidden="true" />
-                          Date
+                          {t('Date')}
                         </th>
                       </tr>
                     </thead>
@@ -285,7 +287,7 @@ export function LivePrices({
                       ))}
                     </tbody>
                   </table>
-                  <p className="mt-2 text-xs text-gray-400">Tap a row to see the price trend for that mandi.</p>
+                  <p className="mt-2 text-xs text-gray-400">{t('Tap a row to see the price trend for that mandi.')}</p>
                 </div>
               )}
               {!loading && !error && rows.length === 0 && rawText && (
@@ -299,11 +301,11 @@ export function LivePrices({
                   {approximate ? (
                     <p className="flex items-start gap-1 text-amber-700">
                       <i className="ph-fill ph-info mt-0.5 text-sm" aria-hidden="true" />
-                      Live market search is busy right now, so these are AI estimates. Confirm the rate at your mandi before selling.
+                      {t('Live market search is busy right now, so these are AI estimates. Confirm the rate at your mandi before selling.')}
                     </p>
                   ) : sources.length > 0 ? (
                     <>
-                      Sources:
+                      {t('Sources:')}
                       <br />
                       {sources.map((s, i) => (
                         <span key={s.uri}>
@@ -316,7 +318,7 @@ export function LivePrices({
                       ))}
                     </>
                   ) : (
-                    'Data from public web info.'
+                    t('Data from public web info.')
                   )}
                 </div>
               )}
@@ -326,8 +328,8 @@ export function LivePrices({
           {chartMandi && (
             <div className="neu rounded-2xl p-4">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-md font-semibold text-gray-800">Price Trend ({chartMandi}):</h3>
-                <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800">History</span>
+                <h3 className="text-md font-semibold text-gray-800">{t('Price Trend')} ({chartMandi}):</h3>
+                <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800">{t('History')}</span>
               </div>
               <div className="mb-4 flex justify-center space-x-2">
                 {SPANS.map((d) => (
@@ -338,7 +340,7 @@ export function LivePrices({
                     aria-pressed={days === d}
                     className={`rounded-md px-3 py-1 text-sm font-medium ${days === d ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-green-100'}`}
                   >
-                    {d} Days
+                    {d} {t('Days')}
                   </button>
                 ))}
               </div>
@@ -347,7 +349,7 @@ export function LivePrices({
                   <div className="mb-3 flex justify-center">
                     <Spinner />
                   </div>
-                  <p className="text-gray-500">Loading trend data...</p>
+                  <p className="text-gray-500">{t('Loading trend data...')}</p>
                 </div>
               )}
               {chartError && (

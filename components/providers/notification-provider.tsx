@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import type { ChatDetails } from '@/lib/types'
 
 export type NotificationKind = 'message' | 'alert' | 'success' | 'info'
@@ -88,6 +89,11 @@ async function showSystemNotification(title: string, body: string, tag: string, 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const router = useRouter()
+  const { t } = useLanguage()
+  const tRef = useRef(t)
+  useEffect(() => {
+    tRef.current = t
+  }, [t])
   const [items, setItems] = useState<AppNotification[]>([])
   const [toasts, setToasts] = useState<AppNotification[]>([])
   const [permission, setPermission] = useState<PermissionState>('default')
@@ -143,7 +149,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const result = await Notification.requestPermission()
     setPermission(result)
     if (result === 'granted') {
-      notify({ kind: 'success', title: 'Alerts are on', body: 'You will get notified about new messages.' })
+      notify({
+        kind: 'success',
+        title: tRef.current('Alerts are on'),
+        body: tRef.current('You will get notified about new messages.'),
+      })
     }
   }, [notify])
 
@@ -153,8 +163,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     const onOffline = () =>
-      notify({ kind: 'alert', title: 'You are offline', body: 'Check your internet. Some features may not work.' })
-    const onOnline = () => notify({ kind: 'success', title: 'Back online', body: 'Your connection is restored.' })
+      notify({
+        kind: 'alert',
+        title: tRef.current('You are offline'),
+        body: tRef.current('Check your internet. Some features may not work.'),
+      })
+    const onOnline = () =>
+      notify({
+        kind: 'success',
+        title: tRef.current('Back online'),
+        body: tRef.current('Your connection is restored.'),
+      })
     window.addEventListener('offline', onOffline)
     window.addEventListener('online', onOnline)
     return () => {
@@ -179,12 +198,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           .select('name, profilePicture')
           .eq('id', m.senderId)
           .maybeSingle()
-        const name = sender?.name || 'New message'
+        const name = sender?.name || tRef.current('New message')
         const avatar = sender?.profilePicture || DEFAULT_PROFILE_LOGO
         notify({
           kind: 'message',
           title: name,
-          body: m.text?.trim() || (m.imageUrl ? 'Sent you a photo' : 'Sent you a message'),
+          body:
+            m.text?.trim() ||
+            (m.imageUrl ? tRef.current('Sent you a photo') : tRef.current('Sent you a message')),
           avatar,
           chat: { chatId: m.chatId, otherUser: { uid: m.senderId, name, profilePicture: avatar } },
         })
@@ -258,7 +279,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             <button
               type="button"
               onClick={() => dismiss(t.id)}
-              aria-label="Dismiss notification"
+              aria-label={t('Dismiss notification')}
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-stone-500 hover:bg-black/5"
             >
               <i className="ph ph-x text-lg" aria-hidden="true" />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useSyncExternalStore } from 'react'
+import { useLanguage } from '@/components/providers/language-provider'
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 
@@ -33,6 +34,7 @@ export function PwaRegister() {
 }
 
 export function InstallButton({ className }: { className?: string }) {
+  const { t } = useLanguage()
   const canInstall = useSyncExternalStore(
     (cb) => {
       listeners.add(cb)
@@ -55,11 +57,11 @@ export function InstallButton({ className }: { className?: string }) {
           emit()
         }}
       >
-        <i className="ph-fill ph-download-simple text-lg" aria-hidden="true" /> Install app
+        <i className="ph-fill ph-download-simple text-lg" aria-hidden="true" /> {t('Install app')}
       </button>
       <button
         type="button"
-        aria-label="Dismiss install prompt"
+        aria-label={t('Dismiss install prompt')}
         className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/20"
         onClick={() => {
           deferred = null

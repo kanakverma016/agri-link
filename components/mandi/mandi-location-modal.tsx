@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { LOCATION_DATA } from '@/lib/mandi'
+import { useLanguage } from '@/components/providers/language-provider'
 
 export type Location = { state: string | null; district: string | null }
 
@@ -14,6 +15,7 @@ export function LocationModal({
   onApply: (l: { state: string; district: string }) => void
   onClose: () => void
 }) {
+  const { t } = useLanguage()
   const [state, setState] = useState(location.state && LOCATION_DATA[location.state] ? location.state : '')
   const [district, setDistrict] = useState(location.district ?? '')
   const valid = Boolean(state && district && LOCATION_DATA[state]?.includes(district))
@@ -24,11 +26,11 @@ export function LocationModal({
       <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} aria-hidden="true" />
       <div className="relative z-10 w-full max-w-xs space-y-4 rounded-xl bg-white p-6 shadow-xl">
         <h3 id="loc-title" className="mb-2 text-lg font-semibold text-gray-800">
-          Change Location
+          {t('Change Location')}
         </h3>
         <div>
           <label htmlFor="state-select" className="mb-1 block text-sm font-medium text-gray-700">
-            State
+            {t('State')}
           </label>
           <select
             id="state-select"
@@ -39,7 +41,7 @@ export function LocationModal({
             }}
             className={select}
           >
-            <option value="">Select State</option>
+            <option value="">{t('Select State')}</option>
             {Object.keys(LOCATION_DATA).map((s) => (
               <option key={s}>{s}</option>
             ))}
@@ -47,7 +49,7 @@ export function LocationModal({
         </div>
         <div>
           <label htmlFor="district-select" className="mb-1 block text-sm font-medium text-gray-700">
-            District
+            {t('District')}
           </label>
           <select
             id="district-select"
@@ -56,7 +58,7 @@ export function LocationModal({
             disabled={!state}
             className={select}
           >
-            <option value="">{state ? 'Select District' : 'Select State First'}</option>
+            <option value="">{state ? t('Select District') : t('Select State First')}</option>
             {(LOCATION_DATA[state] ?? []).map((d) => (
               <option key={d}>{d}</option>
             ))}
@@ -64,7 +66,7 @@ export function LocationModal({
         </div>
         <div className="flex justify-end space-x-3 pt-2">
           <button type="button" onClick={onClose} className="rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 hover:bg-gray-300">
-            Cancel
+            {t('Cancel')}
           </button>
           <button
             type="button"
@@ -72,7 +74,7 @@ export function LocationModal({
             onClick={() => onApply({ state, district })}
             className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
-            Apply
+            {t('Apply')}
           </button>
         </div>
       </div>

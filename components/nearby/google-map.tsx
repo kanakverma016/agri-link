@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Category, Place } from '@/lib/nearby'
+import { useLanguage } from '@/components/providers/language-provider'
 
 type LatLng = { lat: number; lng: number }
 
@@ -51,6 +52,8 @@ export function GoogleMap({
   onBookTruck: (name: string) => void
   onError: (message: string) => void
 }) {
+  const { t } = useLanguage()
+  const tRef = useRef(t)
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<google.maps.Map | null>(null)
   const infoRef = useRef<google.maps.InfoWindow | null>(null)
@@ -64,6 +67,7 @@ export function GoogleMap({
 
   useEffect(() => {
     callbacks.current = { onBookTruck, onRouteResult, onError }
+    tRef.current = t
   })
   useEffect(() => {
     centerRef.current = center
@@ -102,7 +106,7 @@ export function GoogleMap({
     userMarkerRef.current = new google.maps.Marker({
       position: center,
       map,
-      title: 'Your Location',
+      title: t('Your Location'),
       icon: {
         path: google.maps.SymbolPath.CIRCLE,
         scale: 8,
@@ -112,7 +116,7 @@ export function GoogleMap({
         strokeWeight: 3,
       },
     })
-  }, [ready, center])
+  }, [ready, center, t])
 
   // place markers for current category
   useEffect(() => {
@@ -153,13 +157,13 @@ export function GoogleMap({
             el.style.cssText = `font-size:.875rem;color:#4b5563;margin-bottom:2px;${style}`
             root.appendChild(el)
           }
-          line(`Distance: ${p.distance.toFixed(1)} km away`)
+          line(`${t('Distance:')} ${p.distance.toFixed(1)} ${t('km away')}`)
           if (p.category === 'mandi') {
             const price = prices[p.name.toLowerCase()]
-            if (price) line(`Price (${cropName}): ₹${price}/kg`, 'font-weight:600;color:#16a34a')
-            else line("Price: Visit 'Live Prices' tab first", 'font-style:italic;color:#6b7280')
+            if (price) line(`${t('Price')} (${cropName}): ₹${price}/${t('kg')}`, 'font-weight:600;color:#16a34a')
+            else line(t("Price: Visit 'Live Prices' tab first"), 'font-style:italic;color:#6b7280')
           } else if (p.category === 'storage') {
-            line(`Timings: ${p.timings}`)
+            line(`${t('Timings:')} ${p.timings}`)
           }
           const actions = document.createElement('div')
           actions.style.cssText = 'display:flex;gap:8px;margin-top:12px;border-top:1px solid #f3f4f6;padding-top:12px'
@@ -171,8 +175,8 @@ export function GoogleMap({
             b.addEventListener('click', onClick)
             actions.appendChild(b)
           }
-          btn('Directions', '#f0fdf4', '#15803d', () => directionsTo(p.lat, p.lng))
-          btn('Book Truck', '#16a34a', '#ffffff', () => callbacks.current.onBookTruck(p.name))
+          btn(t('Directions'), '#f0fdf4', '#15803d', () => directionsTo(p.lat, p.lng))
+          btn(t('Book Truck'), '#16a34a', '#ffffff', () => callbacks.current.onBookTruck(p.name))
           root.appendChild(actions)
           infoRef.current?.close()
           infoRef.current?.setContent(root)
@@ -200,7 +204,7 @@ export function GoogleMap({
         },
       )
     }
-  }, [ready, places, category, prices, cropName])
+  }, [ready, places, category, prices, cropName, t])
 
   // route requested from list cards
   useEffect(() => {
@@ -224,5 +228,5 @@ export function GoogleMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route?.id, ready])
 
-  return <div ref={containerRef} className="h-[450px] w-full rounded-2xl bg-gray-100" role="region" aria-label="Map of nearby places" />
+  return <div ref={containerRef} className="h-[450px] w-full rounded-2xl bg-gray-100" role="region" aria-label={t('Map of nearby places')} />
 }

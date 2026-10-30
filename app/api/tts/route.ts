@@ -27,12 +27,12 @@ function pcmToWav(pcm: Buffer, sampleRate: number) {
 export async function POST(request: Request) {
   if (!(await verifyUser(request))) return jsonError('Unauthorized', 401)
 
-  const body = (await request.json().catch(() => null)) as { text?: unknown } | null
+  const body = (await request.json().catch(() => null)) as { text?: unknown; lang?: unknown } | null
   const text = typeof body?.text === 'string' ? body.text.trim() : ''
   if (!text) return jsonError('Text is required.', 400)
   if (text.length > MAX_CHARS) return jsonError(`Text must be ${MAX_CHARS} characters or fewer.`, 400)
 
-  const clonedAudio = await speakWithAgentVoice(text, detectLanguageCode(text))
+  const clonedAudio = await speakWithAgentVoice(text, detectLanguageCode(text, body?.lang === 'mr' ? 'mr-IN' : undefined))
   if (clonedAudio) {
     return new Response(new Uint8Array(Buffer.from(clonedAudio, 'base64')), {
       headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=3600' },

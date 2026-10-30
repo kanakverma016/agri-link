@@ -8,6 +8,7 @@ import { useLiveQuery } from '@/lib/use-live-query'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useSpeechSearch } from '@/lib/use-speech-search'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { Spinner } from '@/components/ui/spinner'
@@ -32,10 +33,11 @@ const NO_IMAGE = 'https://placehold.co/600x400/e2e8f0/64748b?text=No+Image'
 
 export function MarketplaceScreen() {
   const { user } = useAuth()
+  const { t, locale, speechLang } = useLanguage()
   const router = useRouter()
   const { alert, showAlert, closeAlert } = useAlert()
   const [search, setSearch] = useState('')
-  const speech = useSpeechSearch(setSearch)
+  const speech = useSpeechSearch(setSearch, speechLang)
   const {
     items: listings,
     loading,
@@ -46,7 +48,7 @@ export function MarketplaceScreen() {
     eq: { status: 'Active' },
     orderBy: 'createdAt',
   })
-  const error = loadFailed ? 'Could not load listings.' : null
+  const error = loadFailed ? t('Could not load listings.') : null
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase()
@@ -85,7 +87,7 @@ export function MarketplaceScreen() {
       router.push(`/?${params.toString()}`)
     } catch (err) {
       console.error('Error creating chat: ', err)
-      showAlert('Error', 'Error starting chat.')
+      showAlert(t('Error'), t('Error starting chat.'))
     }
   }
 
@@ -95,12 +97,12 @@ export function MarketplaceScreen() {
         <div className="flex items-center px-4 py-3">
           <Link
             href="/mandi"
-            aria-label="Back to mandi"
+            aria-label={t('Back to mandi')}
             className="mr-4 rounded-full p-1 text-gray-600 hover:bg-gray-100"
           >
             <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
           </Link>
-          <h1 className="text-xl font-bold text-green-700">B2B Marketplace</h1>
+          <h1 className="text-xl font-bold text-green-700">{t('B2B Marketplace')}</h1>
         </div>
       </nav>
 
@@ -114,15 +116,15 @@ export function MarketplaceScreen() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search for crops..."
-              aria-label="Search for crops"
+              placeholder={t('Search for crops...')}
+              aria-label={t('Search for crops')}
               className="w-full rounded-lg border-none p-3 pl-10 pr-16 focus:ring-2 focus:ring-green-500"
             />
             {speech.supported && (
               <button
                 type="button"
                 onClick={speech.start}
-                aria-label="Search by voice"
+                aria-label={t('Search by voice')}
                 className={`absolute inset-y-0 right-0 flex w-14 items-center justify-center hover:text-green-600 ${
                   speech.listening ? 'text-red-500' : 'text-gray-500'
                 }`}
@@ -132,7 +134,7 @@ export function MarketplaceScreen() {
             )}
           </div>
           <p className="mt-1 h-4 text-center text-xs text-gray-500" aria-live="polite">
-            {speech.status}
+            {speech.status ? t(speech.status) : ''}
           </p>
         </div>
 
@@ -142,20 +144,20 @@ export function MarketplaceScreen() {
               <div className="flex justify-center">
                 <Spinner />
               </div>
-              <p className="mt-2 text-gray-500">Loading listings...</p>
+              <p className="mt-2 text-gray-500">{t('Loading listings...')}</p>
             </div>
           ) : error ? (
             <div className="p-10 text-center">
-              <p className="text-red-500">Error: {error}</p>
+              <p className="text-red-500">{t('Error:')} {error}</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-10 text-center">
               <i className="ph ph-storefront text-6xl text-gray-400" aria-hidden="true" />
               <h3 className="mt-4 text-lg font-semibold text-gray-700">
-                {search ? 'No Matches Found' : 'No Listings Found'}
+                {search ? t('No Matches Found') : t('No Listings Found')}
               </h3>
               <p className="text-gray-500">
-                {search ? 'Try searching for a different crop.' : 'Be the first to create a listing!'}
+                {search ? t('Try searching for a different crop.') : t('Be the first to create a listing!')}
               </p>
             </div>
           ) : (
@@ -165,19 +167,19 @@ export function MarketplaceScreen() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={l.imageUrl || NO_IMAGE}
-                    alt={l.cropName || 'Produce'}
+                    alt={l.cropName || t('Produce')}
                     className="h-40 w-full object-cover"
                   />
                   <div className="p-4">
                     <div className="mb-1 flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-gray-900">{l.cropName || 'Untitled Crop'}</h3>
+                      <h3 className="text-lg font-bold text-gray-900">{l.cropName || t('Untitled Crop')}</h3>
                       <span className="text-xl font-bold text-green-700">
                         ₹{l.price}
-                        <span className="text-sm font-normal text-gray-600">/{l.priceUnit}</span>
+                        <span className="text-sm font-normal text-gray-600">/{t(l.priceUnit)}</span>
                       </span>
                     </div>
                     <p className="mb-3 text-sm text-gray-600">
-                      {l.quantity} {l.quantityUnit} available
+                      {l.quantity} {t(l.quantityUnit)} {t('available')}
                     </p>
                     <div className="mb-4 flex items-center space-x-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -193,14 +195,14 @@ export function MarketplaceScreen() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500">
-                        Posted: {l.createdAt ? new Date(l.createdAt).toLocaleDateString() : 'Just now'}
+                        {t('Posted:')} {l.createdAt ? new Date(l.createdAt).toLocaleDateString(locale) : t('Just now')}
                       </span>
                       {user?.uid === l.sellerId ? (
                         <Link
                           href="/my-listings"
                           className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
                         >
-                          Manage
+                          {t('Manage')}
                         </Link>
                       ) : (
                         <button
@@ -208,7 +210,7 @@ export function MarketplaceScreen() {
                           onClick={() => contactSeller(l)}
                           className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
                         >
-                          Contact Seller
+                          {t('Contact Seller')}
                         </button>
                       )}
                     </div>
@@ -222,7 +224,7 @@ export function MarketplaceScreen() {
 
       <Link
         href="/create-listing"
-        aria-label="Create new listing"
+        aria-label={t('Create new listing')}
         className="absolute bottom-20 right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition-all hover:bg-green-700 active:scale-95"
       >
         <i className="ph ph-plus text-3xl" aria-hidden="true" />

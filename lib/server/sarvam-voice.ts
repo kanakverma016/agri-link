@@ -4,8 +4,8 @@ const DEFAULT_SPEAKER = 'sumit'
 const DEFAULT_VOICE_ID = 'svc-b3369650-5a40-47b8-a593-44607c5e7960'
 const TIMEOUT_MS = 30_000
 
-export function detectLanguageCode(text: string) {
-  if (/[\u0900-\u097F]/.test(text)) return 'hi-IN'
+export function detectLanguageCode(text: string, devanagariLanguage: 'hi-IN' | 'mr-IN' = 'hi-IN') {
+  if (/[\u0900-\u097F]/.test(text)) return devanagariLanguage
   if (/[\u0980-\u09FF]/.test(text)) return 'bn-IN'
   if (/[\u0A80-\u0AFF]/.test(text)) return 'gu-IN'
   if (/[\u0C80-\u0CFF]/.test(text)) return 'kn-IN'

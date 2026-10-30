@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { useLiveQuery } from '@/lib/use-live-query'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
@@ -15,10 +16,11 @@ type Transaction = {
   date: string
 }
 
-const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`
+const inr = (n: number, locale: string) => `₹${n.toLocaleString(locale)}`
 
 export function TransactionsScreen() {
   const { user } = useAuth()
+  const { t, locale } = useLanguage()
   const { items, loading, error } = useLiveQuery<Transaction>({
     table: 'transactions',
     enabled: Boolean(user),
@@ -26,8 +28,8 @@ export function TransactionsScreen() {
     orderBy: 'date',
   })
 
-  const income = items.filter((t) => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
-  const expense = items.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
+  const income = items.filter((x) => x.type === 'income').reduce((s, x) => s + Number(x.amount), 0)
+  const expense = items.filter((x) => x.type === 'expense').reduce((s, x) => s + Number(x.amount), 0)
   const net = income - expense
 
   return (
@@ -36,12 +38,12 @@ export function TransactionsScreen() {
         <div className="flex items-center px-4 py-3">
           <Link
             href="/menu"
-            aria-label="Back to menu"
+            aria-label={t('Back to menu')}
             className="mr-4 rounded-full p-1 text-gray-600 hover:bg-gray-100"
           >
             <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
           </Link>
-          <h1 className="text-xl font-bold text-green-700">My Transactions</h1>
+          <h1 className="text-xl font-bold text-green-700">{t('My Transactions')}</h1>
         </div>
       </nav>
 
@@ -51,49 +53,49 @@ export function TransactionsScreen() {
             <div className="flex justify-center">
               <Spinner />
             </div>
-            <p className="mt-2 text-gray-500">Loading transactions...</p>
+            <p className="mt-2 text-gray-500">{t('Loading transactions...')}</p>
           </div>
         ) : error ? (
-          <p className="p-10 text-center text-gray-500">Error loading data.</p>
+          <p className="p-10 text-center text-gray-500">{t('Error loading data.')}</p>
         ) : (
           <div className="space-y-4">
             <div className="rounded-xl bg-white p-4 shadow-sm">
-              <h2 className="mb-3 text-lg font-semibold text-gray-800">Financial Summary</h2>
+              <h2 className="mb-3 text-lg font-semibold text-gray-800">{t('Financial Summary')}</h2>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <span className="text-xs text-gray-500">Total Income</span>
-                  <p className="text-lg font-semibold text-green-700">{inr(income)}</p>
+                  <span className="text-xs text-gray-500">{t('Total Income')}</span>
+                  <p className="text-lg font-semibold text-green-700">{inr(income, locale)}</p>
                 </div>
                 <div>
-                  <span className="text-xs text-gray-500">Total Expense</span>
-                  <p className="text-lg font-semibold text-red-700">{inr(expense)}</p>
+                  <span className="text-xs text-gray-500">{t('Total Expense')}</span>
+                  <p className="text-lg font-semibold text-red-700">{inr(expense, locale)}</p>
                 </div>
                 <div>
-                  <span className="text-xs text-gray-500">Net Profit</span>
+                  <span className="text-xs text-gray-500">{t('Net Profit')}</span>
                   <p className={`text-lg font-semibold ${net < 0 ? 'text-red-700' : 'text-blue-700'}`}>
-                    {inr(net)}
+                    {inr(net, locale)}
                   </p>
                 </div>
               </div>
             </div>
 
             <div>
-              <h2 className="mb-2 px-1 text-lg font-semibold text-gray-800">Recent History</h2>
+              <h2 className="mb-2 px-1 text-lg font-semibold text-gray-800">{t('Recent History')}</h2>
               {items.length === 0 ? (
                 <div className="p-10 text-center">
                   <i className="ph ph-receipt text-6xl text-gray-400" aria-hidden="true" />
-                  <h3 className="mt-4 text-lg font-semibold text-gray-700">No Transactions Yet</h3>
+                  <h3 className="mt-4 text-lg font-semibold text-gray-700">{t('No Transactions Yet')}</h3>
                   <p className="text-gray-500">
-                    Your income from harvests and activity costs will appear here.
+                    {t('Your income from harvests and activity costs will appear here.')}
                   </p>
                 </div>
               ) : (
                 <ul className="space-y-2">
-                  {items.map((t) => {
-                    const isIncome = t.type === 'income'
+                  {items.map((tx) => {
+                    const isIncome = tx.type === 'income'
                     return (
                       <li
-                        key={t.id}
+                        key={tx.id}
                         className="flex items-center space-x-3 rounded-lg bg-white p-3 shadow-sm"
                       >
                         <div
@@ -107,14 +109,14 @@ export function TransactionsScreen() {
                           />
                         </div>
                         <div className="flex-grow">
-                          <p className="font-medium text-gray-800">{t.description}</p>
+                          <p className="font-medium text-gray-800">{tx.description}</p>
                           <p className="text-sm text-gray-500">
-                            {t.plotName} • {t.date ? new Date(t.date).toLocaleDateString() : ''}
+                            {tx.plotName} • {tx.date ? new Date(tx.date).toLocaleDateString(locale) : ''}
                           </p>
                         </div>
                         <span className={`text-lg font-bold ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
                           {isIncome ? '+ ' : '- '}
-                          {inr(Number(t.amount))}
+                          {inr(Number(tx.amount), locale)}
                         </span>
                       </li>
                     )

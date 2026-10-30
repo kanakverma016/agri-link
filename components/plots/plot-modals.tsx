@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useVoiceFill } from '@/lib/use-voice-fill'
+import { useLanguage } from '@/components/providers/language-provider'
 
 const OTHER_ACTIVITY = 'Other (अन्य)'
 const ACTIVITY_TYPES = [
@@ -71,6 +72,7 @@ function Actions({
   savingLabel: string
   color: string
 }) {
+  const { t } = useLanguage()
   return (
     <div className="flex justify-end space-x-3">
       <button
@@ -78,7 +80,7 @@ function Actions({
         onClick={onCancel}
         className="rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-300"
       >
-        Cancel
+        {t('Cancel')}
       </button>
       <button
         type="submit"
@@ -92,6 +94,7 @@ function Actions({
 }
 
 export function StartCycleModal({ open, onClose, onError, userId, plotId }: ModalProps & PathProps) {
+  const { t } = useLanguage()
   const [cropName, setCropName] = useState('')
   const [variety, setVariety] = useState('')
   const [sowingDate, setSowingDate] = useState('')
@@ -128,7 +131,7 @@ export function StartCycleModal({ open, onClose, onError, userId, plotId }: Moda
       close()
     } catch (err) {
       console.error('Error starting cycle: ', err)
-      onError('Error starting cycle. Please try again.')
+      onError(t('Error starting cycle. Please try again.'))
     } finally {
       setSaving(false)
     }
@@ -136,11 +139,11 @@ export function StartCycleModal({ open, onClose, onError, userId, plotId }: Moda
 
   if (!open) return null
   return (
-    <ModalShell title="Start New Crop Cycle" titleId="cycle-title">
+    <ModalShell title={t('Start New Crop Cycle')} titleId="cycle-title">
       <form onSubmit={submit}>
         <div className="relative mb-4">
           <label htmlFor="cropName" className="mb-2 block text-gray-700">
-            Crop Name
+            {t('Crop Name')}
           </label>
           <input
             id="cropName"
@@ -148,16 +151,16 @@ export function StartCycleModal({ open, onClose, onError, userId, plotId }: Moda
             value={cropName}
             onChange={(e) => setCropName(e.target.value)}
             className={`${field} pr-10`}
-            placeholder="e.g., Wheat"
+            placeholder={t('e.g., Wheat')}
             required
           />
           {voice.supported && (
-            <Mic label="Dictate crop name" active={voice.activeKey === 'cropName'} onClick={() => voice.listen('cropName')} />
+            <Mic label={t('Dictate crop name')} active={voice.activeKey === 'cropName'} onClick={() => voice.listen('cropName')} />
           )}
         </div>
         <div className="relative mb-4">
           <label htmlFor="cropVariety" className="mb-2 block text-gray-700">
-            Variety (Optional)
+            {t('Variety (Optional)')}
           </label>
           <input
             id="cropVariety"
@@ -165,15 +168,15 @@ export function StartCycleModal({ open, onClose, onError, userId, plotId }: Moda
             value={variety}
             onChange={(e) => setVariety(e.target.value)}
             className={`${field} pr-10`}
-            placeholder="e.g., HD-2967"
+            placeholder={t('e.g., HD-2967')}
           />
           {voice.supported && (
-            <Mic label="Dictate variety" active={voice.activeKey === 'variety'} onClick={() => voice.listen('variety')} />
+            <Mic label={t('Dictate variety')} active={voice.activeKey === 'variety'} onClick={() => voice.listen('variety')} />
           )}
         </div>
         <div className="mb-6">
           <label htmlFor="sowingDate" className="mb-2 block text-gray-700">
-            Sowing Date
+            {t('Sowing Date')}
           </label>
           <input
             id="sowingDate"
@@ -187,8 +190,8 @@ export function StartCycleModal({ open, onClose, onError, userId, plotId }: Moda
         <Actions
           onCancel={close}
           saving={saving}
-          submitLabel="Save Cycle"
-          savingLabel="Saving..."
+          submitLabel={t('Save Cycle')}
+          savingLabel={t('Saving...')}
           color="bg-green-600 hover:bg-green-700"
         />
       </form>
@@ -204,6 +207,7 @@ export function AddActivityModal({
   plotId,
   cycleId,
 }: ModalProps & PathProps & { cycleId: string | null }) {
+  const { t } = useLanguage()
   const [date, setDate] = useState(todayISO)
   const [type, setType] = useState(ACTIVITY_TYPES[0])
   const [otherType, setOtherType] = useState('')
@@ -229,12 +233,12 @@ export function AddActivityModal({
     e.preventDefault()
     if (saving) return
     if (!cycleId) {
-      onError('No active crop selected.')
+      onError(t('No active crop selected.'))
       return
     }
     const finalType = type === OTHER_ACTIVITY ? otherType.trim() : type
     if (!finalType) {
-      onError('Please specify the "Other" activity type.')
+      onError(t('Please specify the "Other" activity type.'))
       return
     }
     setSaving(true)
@@ -253,7 +257,7 @@ export function AddActivityModal({
       close()
     } catch (err) {
       console.error('Error adding activity: ', err)
-      onError('Error saving activity.')
+      onError(t('Error saving activity.'))
     } finally {
       setSaving(false)
     }
@@ -261,11 +265,11 @@ export function AddActivityModal({
 
   if (!open) return null
   return (
-    <ModalShell title="Log an Activity" titleId="activity-title">
+    <ModalShell title={t('Log an Activity')} titleId="activity-title">
       <form onSubmit={submit}>
         <div className="mb-4">
           <label htmlFor="activityDate" className="mb-2 block text-gray-700">
-            Date
+            {t('Date')}
           </label>
           <input
             id="activityDate"
@@ -278,7 +282,7 @@ export function AddActivityModal({
         </div>
         <div className="mb-4">
           <label htmlFor="activityType" className="mb-2 block text-gray-700">
-            Activity Type
+            {t('Activity Type')}
           </label>
           <select
             id="activityType"
@@ -286,15 +290,17 @@ export function AddActivityModal({
             onChange={(e) => setType(e.target.value)}
             className={`${field} bg-white`}
           >
-            {ACTIVITY_TYPES.map((t) => (
-              <option key={t}>{t}</option>
+            {ACTIVITY_TYPES.map((a) => (
+              <option key={a} value={a}>
+                {t(a)}
+              </option>
             ))}
           </select>
         </div>
         {type === OTHER_ACTIVITY && (
           <div className="relative mb-4">
             <label htmlFor="otherActivityType" className="mb-2 block text-gray-700">
-              Specify Other Activity
+              {t('Specify Other Activity')}
             </label>
             <input
               id="otherActivityType"
@@ -302,16 +308,16 @@ export function AddActivityModal({
               value={otherType}
               onChange={(e) => setOtherType(e.target.value)}
               className={`${field} pr-10`}
-              placeholder="Type activity..."
+              placeholder={t('Type activity...')}
             />
             {voice.supported && (
-              <Mic label="Dictate activity" active={voice.activeKey === 'other'} onClick={() => voice.listen('other')} />
+              <Mic label={t('Dictate activity')} active={voice.activeKey === 'other'} onClick={() => voice.listen('other')} />
             )}
           </div>
         )}
         <div className="relative mb-4">
           <label htmlFor="activityDesc" className="mb-2 block text-gray-700">
-            Description (Optional)
+            {t('Description (Optional)')}
           </label>
           <input
             id="activityDesc"
@@ -319,15 +325,15 @@ export function AddActivityModal({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className={`${field} pr-10`}
-            placeholder="e.g., 1 bag DAP"
+            placeholder={t('e.g., 1 bag DAP')}
           />
           {voice.supported && (
-            <Mic label="Dictate description" active={voice.activeKey === 'desc'} onClick={() => voice.listen('desc')} />
+            <Mic label={t('Dictate description')} active={voice.activeKey === 'desc'} onClick={() => voice.listen('desc')} />
           )}
         </div>
         <div className="mb-6">
           <label htmlFor="activityCost" className="mb-2 block text-gray-700">
-            Cost (₹)
+            {t('Cost (₹)')}
           </label>
           <input
             id="activityCost"
@@ -344,8 +350,8 @@ export function AddActivityModal({
         <Actions
           onCancel={close}
           saving={saving}
-          submitLabel="Save Activity"
-          savingLabel="Saving..."
+          submitLabel={t('Save Activity')}
+          savingLabel={t('Saving...')}
           color="bg-blue-600 hover:bg-blue-700"
         />
       </form>
@@ -361,6 +367,7 @@ export function HarvestModal({
   plotId,
   cycleId,
 }: ModalProps & PathProps & { cycleId: string | null }) {
+  const { t } = useLanguage()
   const [date, setDate] = useState(todayISO)
   const [totalYield, setTotalYield] = useState('')
   const [yieldUnit, setYieldUnit] = useState('Quintals')
@@ -379,7 +386,7 @@ export function HarvestModal({
     e.preventDefault()
     if (saving) return
     if (!cycleId) {
-      onError('No active crop selected.')
+      onError(t('No active crop selected.'))
       return
     }
     setSaving(true)
@@ -407,7 +414,7 @@ export function HarvestModal({
       close()
     } catch (err) {
       console.error('Error harvesting crop: ', err)
-      onError('Error completing harvest.')
+      onError(t('Error completing harvest.'))
     } finally {
       setSaving(false)
     }
@@ -415,11 +422,11 @@ export function HarvestModal({
 
   if (!open) return null
   return (
-    <ModalShell title="Complete Harvest" titleId="harvest-title">
+    <ModalShell title={t('Complete Harvest')} titleId="harvest-title">
       <form onSubmit={submit}>
         <div className="mb-4">
           <label htmlFor="harvestDate" className="mb-2 block text-gray-700">
-            Harvest Date
+            {t('Harvest Date')}
           </label>
           <input
             id="harvestDate"
@@ -433,7 +440,7 @@ export function HarvestModal({
         <div className="mb-4 grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="totalYield" className="mb-2 block text-gray-700">
-              Total Yield
+              {t('Total Yield')}
             </label>
             <input
               id="totalYield"
@@ -449,7 +456,7 @@ export function HarvestModal({
           </div>
           <div>
             <label htmlFor="yieldUnit" className="mb-2 block text-gray-700">
-              Unit
+              {t('Unit')}
             </label>
             <select
               id="yieldUnit"
@@ -457,14 +464,14 @@ export function HarvestModal({
               onChange={(e) => setYieldUnit(e.target.value)}
               className={`${field} bg-white`}
             >
-              <option>Quintals</option>
-              <option>Kg</option>
+              <option value="Quintals">{t('Quintals')}</option>
+              <option value="Kg">{t('Kg')}</option>
             </select>
           </div>
         </div>
         <div className="mb-6">
           <label htmlFor="sellingPrice" className="mb-2 block text-gray-700">
-            Selling Price (per Unit, ₹)
+            {t('Selling Price (per Unit, ₹)')}
           </label>
           <input
             id="sellingPrice"
@@ -480,8 +487,8 @@ export function HarvestModal({
         <Actions
           onCancel={close}
           saving={saving}
-          submitLabel="Complete"
-          savingLabel="Completing..."
+          submitLabel={t('Complete')}
+          savingLabel={t('Completing...')}
           color="bg-yellow-600 hover:bg-yellow-700"
         />
       </form>

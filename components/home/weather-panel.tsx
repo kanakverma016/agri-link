@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { apiFetch } from '@/lib/api-client'
+import { useLanguage } from '@/components/providers/language-provider'
 
 type ForecastItem = {
   dt: number
@@ -47,6 +48,7 @@ export function WeatherPanel({
   state: string
   onClose: () => void
 }) {
+  const { t, locale } = useLanguage()
   const [visible, setVisible] = useState(false)
   const { data, error, isLoading } = useSWR(
     `/api/weather?district=${encodeURIComponent(district)}`,
@@ -68,34 +70,34 @@ export function WeatherPanel({
     <div className="absolute inset-0 z-30 bg-black bg-opacity-50">
       <div
         role="dialog"
-        aria-label="Weather and advisory"
+        aria-label={t('Weather and advisory')}
         className={`absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-4 transition-transform duration-300 ${
           visible ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-800">Weather and advisory</h2>
-          <button type="button" onClick={close} aria-label="Close weather">
+          <h2 className="text-lg font-bold text-gray-800">{t('Weather and advisory')}</h2>
+          <button type="button" onClick={close} aria-label={t('Close weather')}>
             <i className="ph ph-x text-2xl text-gray-500" aria-hidden="true" />
           </button>
         </div>
         <p className="mb-4 font-semibold text-gray-600">{`${district}, ${state}`}</p>
-        {isLoading && <div className="p-8 text-center">Loading weather...</div>}
+        {isLoading && <div className="p-8 text-center">{t('Loading weather...')}</div>}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 text-xs uppercase text-gray-700">
               <tr>
-                <th scope="col" className="px-4 py-2">Date</th>
-                <th scope="col" className="px-4 py-2">Temperature</th>
-                <th scope="col" className="px-4 py-2">Rain</th>
-                <th scope="col" className="px-4 py-2">Weather</th>
+                <th scope="col" className="px-4 py-2">{t('Date')}</th>
+                <th scope="col" className="px-4 py-2">{t('Temperature')}</th>
+                <th scope="col" className="px-4 py-2">{t('Rain')}</th>
+                <th scope="col" className="px-4 py-2">{t('Weather')}</th>
               </tr>
             </thead>
             <tbody>
               {error && (
                 <tr>
                   <td colSpan={4} className="p-4 text-center text-red-500">
-                    Error: {error.message}
+                    {t('Error')}: {error.message}
                   </td>
                 </tr>
               )}
@@ -107,7 +109,7 @@ export function WeatherPanel({
                   return (
                     <tr key={first.dt} className="border-b bg-white">
                       <td className="px-4 py-3">
-                        {date.getDate()} {date.toLocaleString('default', { month: 'short' })}
+                        {date.getDate()} {date.toLocaleString(locale, { month: 'short' })}
                       </td>
                       <td className="px-4 py-3">
                         {Math.round(Math.min(...temps))}° - {Math.round(Math.max(...temps))}°C
@@ -115,7 +117,7 @@ export function WeatherPanel({
                       <td className="px-4 py-3">{Math.round(first.pop * 100)}%</td>
                       <td className="flex items-center space-x-2 px-4 py-3">
                         <WeatherIcon main={first.weather[0].main} />
-                        <span className="capitalize">{first.weather[0].description}</span>
+                        <span className="capitalize">{t(first.weather[0].description)}</span>
                       </td>
                     </tr>
                   )

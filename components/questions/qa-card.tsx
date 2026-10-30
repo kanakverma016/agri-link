@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { Spinner } from '@/components/ui/spinner'
+import { useLanguage } from '@/components/providers/language-provider'
 
 export type QuestionDoc = {
   id: string
@@ -13,7 +14,8 @@ export type QuestionDoc = {
   createdAt?: string | null
 }
 
-const NO_AUDIO_MARKERS = ['माफ़ करें', 'Stopped by user.']
+const STOPPED_MARKER = 'Stopped by user.'
+const NO_AUDIO_MARKERS = ['माफ़ करें', 'क्षमस्व', 'Sorry, I am an agriculture assistant', STOPPED_MARKER]
 
 export function QACard({
   q,
@@ -28,9 +30,11 @@ export function QACard({
   onStop: (id: string) => void
   onPlay: (q: QuestionDoc) => void
 }) {
-  const date = q.createdAt ? new Date(q.createdAt).toLocaleString() : 'Just now'
-  const answer = q.answerText || 'No answer provided.'
-  const canSpeak = !NO_AUDIO_MARKERS.some((m) => answer.includes(m))
+  const { t, locale } = useLanguage()
+  const date = q.createdAt ? new Date(q.createdAt).toLocaleString(locale) : t('Just now')
+  const rawAnswer = q.answerText || 'No answer provided.'
+  const answer = rawAnswer === STOPPED_MARKER || rawAnswer === 'No answer provided.' ? t(rawAnswer) : rawAnswer
+  const canSpeak = !NO_AUDIO_MARKERS.some((m) => rawAnswer.includes(m))
   const generating = q.audioURL === null
 
   return (
@@ -40,7 +44,7 @@ export function QACard({
         {q.questionImageURL && (
           <Image
             src={q.questionImageURL}
-            alt="Attached to question"
+            alt={t('Attached to question')}
             width={320}
             height={192}
             unoptimized
@@ -54,14 +58,14 @@ export function QACard({
           <div className="mt-3 flex items-center justify-between rounded-lg bg-gray-100 p-3">
             <div className="flex items-center space-x-2">
               <Spinner className="h-5 w-5" />
-              <span className="text-sm italic text-gray-500">Thinking...</span>
+              <span className="text-sm italic text-gray-500">{t('Thinking...')}</span>
             </div>
             <button
               type="button"
               onClick={() => onStop(q.id)}
               className="rounded bg-red-100 px-2 py-1 text-xs text-red-700 hover:bg-red-200"
             >
-              Stop
+              {t('Stop')}
             </button>
           </div>
         ) : (
@@ -70,14 +74,14 @@ export function QACard({
               <p className="flex-grow whitespace-pre-wrap text-gray-800">{answer}</p>
               {canSpeak &&
                 (generating || (loadingAudio && !playing) ? (
-                  <div className="ml-2 flex h-8 w-8 items-center justify-center" title="Generating audio..." role="status">
+                  <div className="ml-2 flex h-8 w-8 items-center justify-center" title={t('Generating audio...')} role="status">
                     <Spinner className="h-4 w-4" />
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => onPlay(q)}
-                    aria-label={playing ? 'Stop audio' : 'Listen to answer'}
+                    aria-label={playing ? t('Stop audio') : t('Listen to answer')}
                     className="ml-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 hover:bg-green-200"
                   >
                     <i className={`ph ${playing ? 'ph-stop' : 'ph-speaker-simple-high'}`} aria-hidden="true" />

@@ -12,6 +12,8 @@ const MAX_HISTORY = 6
 const MAX_REPLY_CHARS = 700
 const RATE_LIMIT_PER_MINUTE = 14
 
+const TREE_LANGUAGE = 'hi-IN'
+
 const LANGUAGES: Record<string, string> = {
   'hi-IN': 'Hindi',
   'en-IN': 'Indian English',
@@ -232,7 +234,7 @@ FARMER DATA
 ${context}
 
 How to speak:
-- Reply ONLY in ${LANGUAGES[language]} (language code ${language}). Use simple everyday words a farmer uses, not textbook terms.
+- Reply ONLY in ${LANGUAGES[language]} (language code ${language}), written in Devanagari script, even if the farmer speaks or types in another language such as English or Marathi. Use simple everyday words a farmer uses, not textbook terms.
 - Your words are converted to speech, so write exactly what should be heard: 1 to 3 short sentences, plain text only, no markdown, no lists, no emojis, no symbols. Write amounts and units in words where natural.
 - Be practical and specific: connect advice to the crop stage (for example irrigation, weeding, fertilizer timing, pest watch for that many days after sowing) and to the expenses and activities already logged.
 - For serious disease, pesticide dosage or money decisions, add a short reminder to confirm with the local KVK or krishi expert.
@@ -251,7 +253,7 @@ export async function POST(request: Request) {
   if (!form) return jsonError('Invalid request.', 400)
 
   const greet = form.get('mode') === 'greet'
-  const preferred = supportedLanguage(form.get('lang')) ?? 'hi-IN'
+  const preferred = TREE_LANGUAGE
   const history = parseHistory(form.get('history'))
   const audio = form.get('audio')
   const typed = form.get('text')
@@ -260,7 +262,7 @@ export async function POST(request: Request) {
   contextPromise.catch(() => {})
 
   let transcript = ''
-  let language = preferred
+  const language = preferred
 
   try {
     if (!greet) {
@@ -268,7 +270,6 @@ export async function POST(request: Request) {
         if (audio.size > MAX_AUDIO_BYTES) return jsonError('Recording is too long.', 413)
         const stt = await transcribeAudio(audio, apiKey)
         transcript = stt.transcript
-        language = supportedLanguage(stt.language) ?? preferred
       } else if (typeof typed === 'string') {
         transcript = typed.trim().slice(0, MAX_TEXT_CHARS)
       }

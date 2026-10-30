@@ -8,6 +8,8 @@ import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { useLanguage } from '@/components/providers/language-provider'
+import { LanguageToggle } from '@/components/language-toggle'
 
 type Dialog = 'logout' | 'logout-error' | 'coming-soon' | null
 
@@ -48,6 +50,7 @@ function MenuLink({
 export function MenuScreen() {
   const { user, profile, logout } = useAuth()
   const router = useRouter()
+  const { t } = useLanguage()
   const [dialog, setDialog] = useState<Dialog>(null)
 
   async function handleLogout() {
@@ -74,42 +77,50 @@ export function MenuScreen() {
           />
           <div className="flex-grow overflow-hidden">
             <h2 className="truncate text-xl font-bold text-gray-800">
-              {profile?.name || user?.displayName || 'Kisan User'}
+              {profile?.name || user?.displayName || t('Kisan User')}
             </h2>
             <p className="truncate text-sm text-gray-500">{profile?.email || user?.email}</p>
           </div>
           <Link
             href="/my-profile"
-            aria-label="Edit profile"
+            aria-label={t('Edit profile')}
             className="flex-shrink-0 text-gray-500 hover:text-green-600"
           >
             <i className="ph ph-pencil-simple text-2xl" aria-hidden="true" />
           </Link>
         </div>
 
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
+          <span className="flex items-center font-medium text-gray-700">
+            <i className="ph ph-translate mr-4 text-2xl text-green-600" aria-hidden="true" />
+            {t('Language')}
+          </span>
+          <LanguageToggle />
+        </div>
+
         <div className="mb-4 overflow-hidden rounded-xl bg-white shadow-sm">
-          <MenuLink href="/my-profile" icon="ph-user-circle" color="text-green-600" label="My Profile" />
+          <MenuLink href="/my-profile" icon="ph-user-circle" color="text-green-600" label={t('My Profile')} />
           <MenuLink
             href="/my-transactions"
             icon="ph-receipt"
             color="text-blue-600"
-            label="My Transactions"
+            label={t('My Transactions')}
             last
           />
         </div>
 
         <div className="mb-4 overflow-hidden rounded-xl bg-white shadow-sm">
-          <MenuLink href="/my-bookings" icon="ph-truck" color="text-purple-600" label="My Bookings" />
+          <MenuLink href="/my-bookings" icon="ph-truck" color="text-purple-600" label={t('My Bookings')} />
           <MenuLink
             href="/my-listings"
             icon="ph-storefront"
             color="text-yellow-600"
-            label="My B2B Listings"
+            label={t('My B2B Listings')}
           />
           <MenuLink
             icon="ph-bookmark-simple"
             color="text-indigo-600"
-            label="Saved Posts"
+            label={t('Saved Posts')}
             last
             onClick={comingSoon}
           />
@@ -119,7 +130,7 @@ export function MenuScreen() {
           <MenuLink
             icon="ph-headset"
             color="text-gray-600"
-            label="Customer Support"
+            label={t('Customer Support')}
             onClick={comingSoon}
           />
           <button
@@ -128,7 +139,7 @@ export function MenuScreen() {
             className="flex w-full items-center p-4 text-left text-red-600 transition hover:bg-red-50"
           >
             <i className="ph ph-sign-out mr-4 text-2xl" aria-hidden="true" />
-            <span className="flex-grow font-medium">Logout</span>
+            <span className="flex-grow font-medium">{t('Logout')}</span>
           </button>
         </div>
       </main>
@@ -137,9 +148,9 @@ export function MenuScreen() {
 
       <ConfirmModal
         open={dialog === 'logout'}
-        title="Logout"
-        message="Are you sure you want to logout?"
-        confirmLabel="Logout"
+        title={t('Logout')}
+        message={t('Are you sure you want to logout?')}
+        confirmLabel={t('Logout')}
         destructive
         onCancel={() => setDialog(null)}
         onConfirm={() => {
@@ -149,16 +160,16 @@ export function MenuScreen() {
       />
       <ConfirmModal
         open={dialog === 'logout-error'}
-        title="Error"
-        message="Could not log out. Please try again."
+        title={t('Error')}
+        message={t('Could not log out. Please try again.')}
         destructive
         onCancel={() => setDialog(null)}
         onConfirm={() => setDialog(null)}
       />
       <ConfirmModal
         open={dialog === 'coming-soon'}
-        title="Coming Soon"
-        message="This feature is under development."
+        title={t('Coming Soon')}
+        message={t('This feature is under development.')}
         onCancel={() => setDialog(null)}
         onConfirm={() => setDialog(null)}
       />

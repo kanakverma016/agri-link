@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useLiveQuery } from '@/lib/use-live-query'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { Spinner } from '@/components/ui/spinner'
@@ -34,6 +35,7 @@ const NO_IMAGE = 'https://placehold.co/600x400/e2e8f0/64748b?text=No+Image'
 
 export function ListingsScreen() {
   const { user } = useAuth()
+  const { t, locale } = useLanguage()
   const { alert, showAlert, closeAlert } = useAlert()
   const [pending, setPending] = useState<Pending>(null)
   const {
@@ -47,7 +49,7 @@ export function ListingsScreen() {
     eq: { sellerId: user?.uid },
     orderBy: 'createdAt',
   })
-  const error = loadFailed ? 'Could not load listings.' : null
+  const error = loadFailed ? t('Could not load listings.') : null
 
   async function runPending() {
     if (!pending) return
@@ -58,20 +60,20 @@ export function ListingsScreen() {
       if (kind === 'sold') {
         const { error: updateError } = await supabase.from('b2b_listings').update({ status: 'Sold' }).eq('id', id)
         if (updateError) throw updateError
-        showAlert('Success', 'Listing marked as Sold.')
+        showAlert(t('Success'), t('Listing marked as Sold.'))
       } else {
         const { error: deleteError } = await supabase.from('b2b_listings').delete().eq('id', id)
         if (deleteError) throw deleteError
-        showAlert('Success', 'Listing has been deleted.')
+        showAlert(t('Success'), t('Listing has been deleted.'))
       }
       void refetch()
     } catch (err) {
       console.error('Error updating listing: ', err)
       showAlert(
-        'Error',
+        t('Error'),
         kind === 'sold'
-          ? 'Could not update listing. Please try again.'
-          : 'Could not delete listing. Please try again.',
+          ? t('Could not update listing. Please try again.')
+          : t('Could not delete listing. Please try again.'),
       )
     }
   }
@@ -83,18 +85,18 @@ export function ListingsScreen() {
           <div className="flex items-center">
             <Link
               href="/menu"
-              aria-label="Back to menu"
+              aria-label={t('Back to menu')}
               className="mr-4 rounded-full p-1 text-gray-600 hover:bg-gray-100"
             >
               <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
             </Link>
-            <h1 className="text-xl font-bold text-green-700">My B2B Listings</h1>
+            <h1 className="text-xl font-bold text-green-700">{t('My B2B Listings')}</h1>
           </div>
           <Link
             href="/create-listing"
             className="rounded-lg p-2 font-medium text-green-600 hover:bg-green-50"
           >
-            Create New
+            {t('Create New')}
           </Link>
         </div>
       </nav>
@@ -105,7 +107,7 @@ export function ListingsScreen() {
             <div className="flex justify-center">
               <Spinner />
             </div>
-            <p className="mt-2 text-gray-500">Loading your listings...</p>
+            <p className="mt-2 text-gray-500">{t('Loading your listings...')}</p>
           </div>
         ) : error ? (
           <div className="p-10 text-center">
@@ -114,15 +116,15 @@ export function ListingsScreen() {
         ) : listings.length === 0 ? (
           <div className="p-10 text-center">
             <i className="ph ph-storefront text-6xl text-gray-400" aria-hidden="true" />
-            <h3 className="mt-4 text-lg font-semibold text-gray-700">No Listings Yet</h3>
+            <h3 className="mt-4 text-lg font-semibold text-gray-700">{t('No Listings Yet')}</h3>
             <p className="text-gray-500">
-              List your produce on the B2B Marketplace to sell directly to buyers.
+              {t('List your produce on the B2B Marketplace to sell directly to buyers.')}
             </p>
             <Link
               href="/create-listing"
               className="mt-4 inline-block rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700"
             >
-              Create Your First Listing
+              {t('Create Your First Listing')}
             </Link>
           </div>
         ) : (
@@ -144,7 +146,7 @@ export function ListingsScreen() {
                           STATUS_CLASS[l.status] ?? 'bg-gray-100 text-gray-500'
                         }`}
                       >
-                        {l.status}
+                        {t(l.status)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600">
@@ -155,7 +157,7 @@ export function ListingsScreen() {
                       <span className="text-sm font-normal text-gray-600">/{l.priceUnit}</span>
                     </p>
                     <p className="mt-1 text-xs text-gray-400">
-                      Posted: {l.createdAt ? new Date(l.createdAt).toLocaleDateString() : 'Just now'}
+                      {t('Posted:')} {l.createdAt ? new Date(l.createdAt).toLocaleDateString(locale) : t('Just now')}
                     </p>
                   </div>
                 </div>
@@ -166,7 +168,7 @@ export function ListingsScreen() {
                       onClick={() => setPending({ kind: 'sold', id: l.id })}
                       className="rounded-lg bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 hover:bg-blue-200"
                     >
-                      Mark as Sold
+                      {t('Mark as Sold')}
                     </button>
                   )}
                   <button
@@ -174,7 +176,7 @@ export function ListingsScreen() {
                     onClick={() => setPending({ kind: 'delete', id: l.id })}
                     className="rounded-lg bg-red-100 px-3 py-1 text-sm font-medium text-red-700 hover:bg-red-200"
                   >
-                    Delete
+                    {t('Delete')}
                   </button>
                 </div>
               </li>
@@ -187,13 +189,13 @@ export function ListingsScreen() {
 
       <ConfirmModal
         open={pending !== null}
-        title={pending?.kind === 'delete' ? 'Delete Listing?' : 'Mark as Sold?'}
+        title={pending?.kind === 'delete' ? t('Delete Listing?') : t('Mark as Sold?')}
         message={
           pending?.kind === 'delete'
-            ? 'This action cannot be undone.'
-            : 'This will remove the listing from the public marketplace.'
+            ? t('This action cannot be undone.')
+            : t('This will remove the listing from the public marketplace.')
         }
-        confirmLabel={pending?.kind === 'delete' ? 'Delete' : 'Confirm'}
+        confirmLabel={pending?.kind === 'delete' ? t('Delete') : t('Confirm')}
         destructive={pending?.kind === 'delete'}
         onCancel={() => setPending(null)}
         onConfirm={runPending}

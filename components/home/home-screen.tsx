@@ -8,6 +8,8 @@ import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { ChatDetails, Post } from '@/lib/types'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
+import { LanguageToggle } from '@/components/language-toggle'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { useNotifications } from '@/components/providers/notification-provider'
@@ -33,6 +35,7 @@ const QUICK_LINKS = [
 
 export function HomeScreen() {
   const { user, profile } = useAuth()
+  const { t } = useLanguage()
   const { alert, showAlert, closeAlert } = useAlert()
   const { items: posts } = useLiveQuery<Post>({
     table: 'posts',
@@ -89,8 +92,8 @@ export function HomeScreen() {
   function handleWeather() {
     if (!profile) {
       showAlert(
-        'Error',
-        'Could not find user location data. Please ensure your profile is complete.',
+        t('Error'),
+        t('Could not find user location data. Please ensure your profile is complete.'),
       )
       return
     }
@@ -115,9 +118,9 @@ export function HomeScreen() {
       <header className="z-20 flex-shrink-0 rounded-b-[2rem] bg-gradient-to-br from-emerald-700 via-teal-700 to-teal-900 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-white shadow-lg sm:px-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 animate-fade-up">
-            <p className="text-sm font-semibold text-green-100">Namaste</p>
+            <p className="text-sm font-semibold text-green-100">{t('Namaste')}</p>
             <h1 className="truncate text-xl font-extrabold sm:text-2xl">
-              {profile?.name?.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Kisan'}
+              {profile?.name?.split(' ')[0] || user?.displayName?.split(' ')[0] || t('Kisan')}
             </h1>
             {profile?.district && (
               <p className="mt-0.5 flex items-center gap-1 truncate text-xs font-semibold text-green-100">
@@ -128,10 +131,10 @@ export function HomeScreen() {
           </div>
           <div className="flex items-center gap-2">
             {[
-              { label: 'Weather and advisory', icon: 'ph-cloud-sun', onClick: handleWeather, badge: 0 },
-              { label: 'Notifications', icon: 'ph-bell', onClick: () => setShowNotifications(true), badge: unread },
+              { label: t('Weather and advisory'), icon: 'ph-cloud-sun', onClick: handleWeather, badge: 0 },
+              { label: t('Notifications'), icon: 'ph-bell', onClick: () => setShowNotifications(true), badge: unread },
               {
-                label: 'Messenger',
+                label: t('Messenger'),
                 icon: 'ph-chat-circle-dots',
                 onClick: () => setShowMessenger(true),
                 badge: unreadMessages,
@@ -141,7 +144,7 @@ export function HomeScreen() {
                 key={b.label}
                 type="button"
                 onClick={b.onClick}
-                aria-label={b.badge ? `${b.label}, ${b.badge} unread` : b.label}
+                aria-label={b.badge ? t('{label}, {count} unread', { label: b.label, count: b.badge }) : b.label}
                 className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/15 hover:bg-white/25"
               >
                 <i className={`ph ${b.icon} text-2xl`} aria-hidden="true" />
@@ -154,20 +157,21 @@ export function HomeScreen() {
             ))}
           </div>
         </div>
+        <LanguageToggle tone="onDark" className="mt-3" />
       </header>
 
       <div ref={scrollRef} className="flex-grow overflow-y-auto pb-28">
         <div className="px-4 pt-4">
           <div className="relative">
             <label htmlFor="search-bar" className="sr-only">
-              Search posts
+              {t('Search posts')}
             </label>
             <input
               type="search"
               id="search-bar"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search posts, crops, tags..."
+              placeholder={t('Search posts, crops, tags...')}
               className="w-full rounded-full border border-green-100 bg-white py-3 pl-11 pr-4 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
             <i
@@ -177,7 +181,7 @@ export function HomeScreen() {
           </div>
         </div>
 
-        <section aria-label="Quick actions" className="grid grid-cols-3 gap-3 px-4 pt-4 md:grid-cols-6 md:px-6">
+        <section aria-label={t('Quick actions')} className="grid grid-cols-3 gap-3 px-4 pt-4 md:grid-cols-6 md:px-6">
           {QUICK_LINKS.map((link, i) => (
             <Link
               key={link.href}
@@ -189,7 +193,7 @@ export function HomeScreen() {
               <span className={cn('flex h-12 w-12 items-center justify-center rounded-2xl', link.tone)}>
                 <i className={`ph-fill ${link.icon} text-2xl`} aria-hidden="true" />
               </span>
-              <span className="text-xs font-bold leading-tight text-stone-700">{link.label}</span>
+              <span className="text-xs font-bold leading-tight text-stone-700">{t(link.label)}</span>
             </Link>
           ))}
         </section>
@@ -202,7 +206,7 @@ export function HomeScreen() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={profilePic} alt="" className="h-10 w-10 rounded-full object-cover" />
-            <span className="flex-grow font-semibold text-stone-500">Share with farmers...</span>
+            <span className="flex-grow font-semibold text-stone-500">{t('Share with farmers...')}</span>
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-700 text-white">
               <i className="ph-fill ph-plus" aria-hidden="true" />
             </span>

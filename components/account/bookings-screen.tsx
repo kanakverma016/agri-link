@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { useLiveQuery } from '@/lib/use-live-query'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
@@ -24,6 +25,7 @@ const STATUS_CLASS: Record<string, string> = {
 
 export function BookingsScreen() {
   const { user } = useAuth()
+  const { t, locale } = useLanguage()
   const { items, loading, error } = useLiveQuery<Booking>({
     table: 'bookings',
     enabled: Boolean(user),
@@ -37,12 +39,12 @@ export function BookingsScreen() {
         <div className="flex items-center px-4 py-3">
           <Link
             href="/menu"
-            aria-label="Back to menu"
+            aria-label={t('Back to menu')}
             className="mr-4 rounded-full p-1 text-gray-600 hover:bg-gray-100"
           >
             <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
           </Link>
-          <h1 className="text-xl font-bold text-green-700">My Bookings</h1>
+          <h1 className="text-xl font-bold text-green-700">{t('My Bookings')}</h1>
         </div>
       </nav>
 
@@ -52,22 +54,22 @@ export function BookingsScreen() {
             <div className="flex justify-center">
               <Spinner />
             </div>
-            <p className="mt-2 text-gray-500">Loading your bookings...</p>
+            <p className="mt-2 text-gray-500">{t('Loading your bookings...')}</p>
           </div>
         ) : error ? (
-          <p className="p-10 text-center text-gray-500">Error loading data.</p>
+          <p className="p-10 text-center text-gray-500">{t('Error loading data.')}</p>
         ) : items.length === 0 ? (
           <div className="p-10 text-center">
             <i className="ph ph-truck text-6xl text-gray-400" aria-hidden="true" />
-            <h3 className="mt-4 text-lg font-semibold text-gray-700">No Bookings Found</h3>
+            <h3 className="mt-4 text-lg font-semibold text-gray-700">{t('No Bookings Found')}</h3>
             <p className="text-gray-500">
-              Your requested bookings for trucks and tractors will appear here.
+              {t('Your requested bookings for trucks and tractors will appear here.')}
             </p>
             <Link
               href="/book-logistics"
               className="mt-4 inline-block rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700"
             >
-              Book a Service
+              {t('Book a Service')}
             </Link>
           </div>
         ) : (
@@ -82,9 +84,9 @@ export function BookingsScreen() {
                       <i className="ph ph-tractor text-2xl text-green-600" aria-hidden="true" />
                     )}
                     <div>
-                      <h3 className="font-semibold text-gray-800">{b.serviceType} Booking</h3>
+                      <h3 className="font-semibold text-gray-800">{t(b.serviceType === 'Truck' ? 'Truck Booking' : 'Tractor Booking')}</h3>
                       <p className="text-sm text-gray-500">
-                        For: {b.bookingDate ? new Date(b.bookingDate).toLocaleDateString() : ''}
+                        {t('For:')} {b.bookingDate ? new Date(b.bookingDate).toLocaleDateString(locale) : ''}
                       </p>
                     </div>
                   </div>
@@ -93,15 +95,15 @@ export function BookingsScreen() {
                       STATUS_CLASS[b.status] ?? 'bg-gray-100 text-gray-500'
                     }`}
                   >
-                    {b.status}
+                    {t(b.status)}
                   </span>
                 </div>
                 <div className="mt-3 space-y-1 border-t pt-3 text-sm">
                   <p className="text-gray-600">
-                    <strong>From:</strong> {b.plotName}
+                    <strong>{t('From:')}</strong> {b.plotName}
                   </p>
                   <p className="text-gray-600">
-                    <strong>To:</strong> {b.destination}
+                    <strong>{t('To:')}</strong> {b.destination}
                   </p>
                 </div>
               </li>
