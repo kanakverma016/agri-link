@@ -46,8 +46,8 @@ export function KisanTorchAd() {
         src={KISAN_TORCH_IMAGE}
         alt={t('Kisan Torch Ad')}
         referrerPolicy="no-referrer"
-        className="h-auto max-h-96 w-full object-cover"
-      />
+  className="h-auto w-full object-contain"
+  />
       <div className="p-4">
         <p className="font-semibold text-gray-700">{t('Heavy-duty torch for all your farm needs.')}</p>
       </div>
