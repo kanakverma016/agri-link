@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { ReplyBubble } from '@/components/assistant/reply-bubble'
+import { useLanguage } from '@/components/providers/language-provider'
 
 const TreeScene = dynamic(() => import('@/components/assistant/tree-scene').then((m) => m.TreeScene), {
   ssr: false,
@@ -107,6 +108,7 @@ function base64ToBlob(base64: string, type: string) {
 }
 
 export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [phase, setPhase] = useState<Phase>('sleeping')
   const [sceneReady, setSceneReady] = useState(false)
@@ -532,12 +534,12 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
 
   const micLabel =
     phase === 'listening'
-      ? 'Stop recording and send'
+      ? t('Stop recording and send')
       : phase === 'speaking'
-        ? 'Interrupt and speak'
+        ? t('Interrupt and speak')
         : phase === 'thinking'
-          ? 'Cancel'
-          : 'Speak to Krishi Dost'
+          ? t('Cancel')
+          : t('Speak to Krishi Dost')
 
   const hint =
     phase === 'sleeping'
@@ -559,7 +561,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
             unlockAudio()
             setOpen(true)
           }}
-          aria-label="Open Krishi Dost assistant"
+          aria-label={t('Open Krishi Dost assistant')}
           className="group absolute bottom-24 right-4 z-20 flex h-16 w-16 items-center justify-center rounded-full"
         >
           <span aria-hidden="true" className="absolute inset-0 animate-wake-ring rounded-full bg-emerald-500/40" />
@@ -586,7 +588,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Krishi Dost voice assistant"
+          aria-label={t('Krishi Dost voice assistant')}
           className="absolute inset-0 z-40 flex origin-[88%_86%] animate-sheet-in flex-col overflow-hidden bg-gradient-to-b from-emerald-950 via-teal-950 to-emerald-900 text-white"
         >
           <header className="flex flex-shrink-0 items-center justify-between gap-3 px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -613,7 +615,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
               ref={closeRef}
               type="button"
               onClick={close}
-              aria-label="Close assistant"
+              aria-label={t('Close assistant')}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
             >
               <i className="ph ph-x text-xl" aria-hidden="true" />
@@ -622,7 +624,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
 
           {summary && (summary.plots > 0 || summary.crops.length > 0) && (
             <ul
-              aria-label="What Krishi Dost knows about your farm"
+              aria-label={t('What Krishi Dost knows about your farm')}
               className="flex flex-shrink-0 gap-2 overflow-x-auto px-4 pb-1 pt-1 [scrollbar-width:none]"
             >
               <li className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-emerald-100">
@@ -644,7 +646,7 @@ export function KrishiAssistant({ hidden = false }: { hidden?: boolean }) {
           <button
             type="button"
             onClick={handlePrimaryAction}
-            aria-label={awake ? micLabel : 'Wake up Krishi Dost'}
+            aria-label={awake ? micLabel : t('Wake up Krishi Dost')}
             className="relative min-h-40 w-full flex-1 cursor-pointer overflow-hidden"
           >
             <div aria-hidden="true" className="pointer-events-none absolute inset-0">

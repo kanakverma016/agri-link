@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import { useLanguage } from '@/components/providers/language-provider'
 
 export type AlertState = { title: string; message: string } | null
 
@@ -12,6 +13,7 @@ export function useAlert() {
 }
 
 export function AlertModal({ alert, onClose }: { alert: AlertState; onClose: () => void }) {
+  const { t } = useLanguage()
   if (!alert) return null
   return (
     <div
@@ -34,7 +36,7 @@ export function AlertModal({ alert, onClose }: { alert: AlertState; onClose: () 
           onClick={onClose}
           className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700"
         >
-          OK
+          {t('OK')}
         </button>
       </div>
     </div>

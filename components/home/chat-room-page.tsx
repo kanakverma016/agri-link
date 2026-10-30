@@ -5,6 +5,7 @@ import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
 import { useLiveQuery } from '@/lib/use-live-query'
 import { useAuth } from '@/components/providers/auth-provider'
 import { useNotifications } from '@/components/providers/notification-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition'
 import { useTts } from '@/hooks/use-tts'
 import { cn } from '@/lib/utils'
@@ -23,6 +24,7 @@ function TtsButton({
   playingId: string | null
   onToggle: (id: string, text: string) => void
 }) {
+  const { t } = useLanguage()
   const playing = playingId === id
   const loading = loadingId === id
   return (
@@ -30,7 +32,7 @@ function TtsButton({
       type="button"
       className={cn('tts-button', playing && 'playing')}
       disabled={loading}
-      aria-label={playing ? 'Stop audio' : 'Listen to message'}
+      aria-label={playing ? t('Stop audio') : t('Listen to message')}
       onClick={() => onToggle(id, text)}
     >
       {loading ? (
@@ -52,6 +54,7 @@ export function ChatRoomPage({
   showAlert: (title: string, message: string) => void
 }) {
   const { user } = useAuth()
+  const { t, speechLang } = useLanguage()
   const { setActiveChatId } = useNotifications()
   useEffect(() => {
     setActiveChatId(chat.chatId)
@@ -75,7 +78,10 @@ export function ChatRoomPage({
   const containerRef = useRef<HTMLElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const tts = useTts(showAlert)
-  const mic = useSpeechRecognition((t) => setText((prev) => prev + (prev ? ' ' : '') + t))
+  const mic = useSpeechRecognition(
+    (spoken) => setText((prev) => prev + (prev ? ' ' : '') + spoken),
+    speechLang,
+  )
 
   useEffect(() => {
     const el = containerRef.current
@@ -119,7 +125,7 @@ export function ChatRoomPage({
       const { error: chatError } = await supabase
         .from('chats')
         .update({
-          lastMessage: messageText || 'Sent an image',
+          lastMessage: messageText || t('Sent an image'),
           lastMessageTimestamp: new Date().toISOString(),
         })
         .eq('id', chat.chatId)
@@ -128,7 +134,7 @@ export function ChatRoomPage({
       setImageFile(null)
     } catch (error) {
       console.error('Error sending message: ', error)
-      showAlert('Error', 'Could not send message.')
+      showAlert(t('Error'), t('Could not send message.'))
     } finally {
       setSending(false)
       inputRef.current?.focus()
@@ -142,7 +148,7 @@ export function ChatRoomPage({
           <button
             type="button"
             onClick={handleBack}
-            aria-label="Back"
+            aria-label={t('Back')}
             className="mr-3 rounded-full p-1 text-gray-600 hover:bg-gray-100"
           >
             <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
@@ -158,11 +164,11 @@ export function ChatRoomPage({
       </nav>
       <main ref={containerRef} className="flex flex-grow flex-col gap-3 overflow-y-auto p-4">
         {loadError ? (
-          <p className="p-10 text-center text-red-500">Error loading messages.</p>
+          <p className="p-10 text-center text-red-500">{t('Error loading messages.')}</p>
         ) : messages === null ? (
-          <p className="text-center text-gray-500">Loading messages...</p>
+          <p className="text-center text-gray-500">{t('Loading messages...')}</p>
         ) : messages.length === 0 ? (
-          <p className="text-center text-gray-500">No messages yet. Say hello!</p>
+          <p className="text-center text-gray-500">{t('No messages yet. Say hello!')}</p>
         ) : (
           messages.map((msg) => {
             const body = msg.text || ''
@@ -185,7 +191,7 @@ export function ChatRoomPage({
                   <>
                     <div className="chat-image">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={msg.imageUrl} alt="Chat attachment" />
+                      <img src={msg.imageUrl} alt={t('Chat attachment')} />
                     </div>
                     {body && (
                       <div className="chat-caption-container">
@@ -212,11 +218,11 @@ export function ChatRoomPage({
         <div className="border-t border-gray-200 bg-gray-100 p-2">
           <div className="relative h-24 w-24 overflow-hidden rounded-lg">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreview} alt="Selected attachment" className="h-full w-full object-cover" />
+            <img src={imagePreview} alt={t('Selected attachment')} className="h-full w-full object-cover" />
             <button
               type="button"
               onClick={() => setImageFile(null)}
-              aria-label="Remove image"
+              aria-label={t('Remove image')}
               className="absolute right-1 top-1 rounded-full bg-black bg-opacity-50 p-0.5 text-white"
             >
               <i className="ph ph-x text-sm" aria-hidden="true" />
@@ -232,7 +238,7 @@ export function ChatRoomPage({
         <label
           htmlFor="chat-image-input"
           className="cursor-pointer p-2 text-gray-500 hover:text-green-600"
-          aria-label="Attach image"
+          aria-label={t('Attach image')}
         >
           <i className="ph ph-paperclip text-2xl" aria-hidden="true" />
         </label>
@@ -251,7 +257,7 @@ export function ChatRoomPage({
           <button
             type="button"
             onClick={mic.start}
-            aria-label="Dictate message"
+            aria-label={t('Dictate message')}
             className={cn(
               'mic-button-chat p-2 text-gray-500 hover:text-blue-600',
               mic.listening && 'listening',
@@ -266,15 +272,15 @@ export function ChatRoomPage({
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={sending}
-          placeholder="Type a message..."
-          aria-label="Message"
+          placeholder={t('Type a message...')}
+          aria-label={t('Message')}
           autoComplete="off"
           className="w-full rounded-full border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-green-500"
         />
         <button
           type="submit"
           disabled={sending}
-          aria-label="Send"
+          aria-label={t('Send')}
           className="ml-2 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-green-600 p-3 text-white hover:bg-green-700"
         >
           {sending ? (

@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from 'next'
 import { Nunito } from 'next/font/google'
 import Script from 'next/script'
+import { cookies } from 'next/headers'
 import { AuthProvider } from '@/components/providers/auth-provider'
+import { LanguageProvider } from '@/components/providers/language-provider'
+import { DEFAULT_LANG, LANG_COOKIE, isLang } from '@/lib/i18n/config'
 import { PwaRegister } from '@/components/pwa'
 import '@phosphor-icons/web/regular'
 import '@phosphor-icons/web/fill'
@@ -42,14 +45,18 @@ export const viewport: Viewport = {
 
 const themeInit = `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');var m=document.querySelector('meta[name="theme-color"]');m&&m.setAttribute('content','#0b1512')}}catch(e){}`
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const stored = (await cookies()).get(LANG_COOKIE)?.value
+  const lang = isLang(stored) ? stored : DEFAULT_LANG
   return (
-    <html lang="en" suppressHydrationWarning className={`${nunito.variable} bg-[#ecf4f0] dark:bg-[#0b1512]`}>
+    <html lang={lang} suppressHydrationWarning className={`${nunito.variable} bg-[#ecf4f0] dark:bg-[#0b1512]`}>
       <body className="font-sans antialiased">
         <Script id="theme-init" strategy="beforeInteractive">
           {themeInit}
         </Script>
-        <AuthProvider>{children}</AuthProvider>
+        <LanguageProvider initialLang={lang}>
+          <AuthProvider>{children}</AuthProvider>
+        </LanguageProvider>
         <PwaRegister />
       </body>
     </html>

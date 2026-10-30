@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useVoiceFill } from '@/lib/use-voice-fill'
+import { useLanguage } from '@/components/providers/language-provider'
 
 const OTHER_SOIL = 'Other (अन्य)'
 const SOIL_TYPES = ['Domat (दोमट)', 'Baluai (बलुई)', 'Chikni (चिकनी)', 'Gadiya (गादिया)', OTHER_SOIL]
@@ -19,6 +20,7 @@ export function AddPlotModal({
   onClose: () => void
   onError: (message: string) => void
 }) {
+  const { t } = useLanguage()
   const [plotName, setPlotName] = useState('')
   const [area, setArea] = useState('')
   const [areaUnit, setAreaUnit] = useState('Acres')
@@ -50,7 +52,7 @@ export function AddPlotModal({
     if (saving) return
     const finalSoil = soilType === OTHER_SOIL ? otherSoil.trim() : soilType
     if (!finalSoil) {
-      onError('Please specify the "Other" soil type.')
+      onError(t('Please specify the "Other" soil type.'))
       return
     }
     setSaving(true)
@@ -67,7 +69,7 @@ export function AddPlotModal({
       onClose()
     } catch (err) {
       console.error('Error adding document: ', err)
-      onError('Error saving plot. Please try again.')
+      onError(t('Error saving plot. Please try again.'))
     } finally {
       setSaving(false)
     }
@@ -84,12 +86,12 @@ export function AddPlotModal({
     >
       <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
         <h3 id="add-plot-title" className="mb-4 text-lg font-semibold text-gray-800">
-          Add New Plot
+          {t('Add New Plot')}
         </h3>
         <form onSubmit={handleSubmit}>
           <div className="relative mb-4">
             <label htmlFor="plotName" className="mb-2 block text-gray-700">
-              Plot Name
+              {t('Plot Name')}
             </label>
             <input
               id="plotName"
@@ -97,12 +99,12 @@ export function AddPlotModal({
               value={plotName}
               onChange={(e) => setPlotName(e.target.value)}
               className={`${field} pr-10`}
-              placeholder="e.g., Field by the river"
+              placeholder={t('e.g., Field by the river')}
               required
             />
             {voice.supported && (
               <MicButton
-                label="Dictate plot name"
+                label={t('Dictate plot name')}
                 active={voice.activeKey === 'plotName'}
                 onClick={() => voice.listen('plotName')}
               />
@@ -112,7 +114,7 @@ export function AddPlotModal({
           <div className="mb-4 grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="plotArea" className="mb-2 block text-gray-700">
-                Area
+                {t('Area')}
               </label>
               <input
                 id="plotArea"
@@ -128,7 +130,7 @@ export function AddPlotModal({
             </div>
             <div>
               <label htmlFor="plotAreaUnit" className="mb-2 block text-gray-700">
-                Unit
+                {t('Unit')}
               </label>
               <select
                 id="plotAreaUnit"
@@ -136,16 +138,16 @@ export function AddPlotModal({
                 onChange={(e) => setAreaUnit(e.target.value)}
                 className={`${field} bg-white`}
               >
-                <option>Acres</option>
-                <option>Bigha</option>
-                <option>Hectares</option>
+                <option value="Acres">{t('Acres')}</option>
+                <option value="Bigha">{t('Bigha')}</option>
+                <option value="Hectares">{t('Hectares')}</option>
               </select>
             </div>
           </div>
 
           <div className="mb-4">
             <label htmlFor="plotSoilType" className="mb-2 block text-gray-700">
-              Soil Type
+              {t('Soil Type')}
             </label>
             <select
               id="plotSoilType"
@@ -154,7 +156,7 @@ export function AddPlotModal({
               className={`${field} bg-white`}
             >
               {SOIL_TYPES.map((s) => (
-                <option key={s}>{s}</option>
+                <option key={s} value={s}>{t(s)}</option>
               ))}
             </select>
           </div>
@@ -162,7 +164,7 @@ export function AddPlotModal({
           {soilType === OTHER_SOIL && (
             <div className="relative mb-6">
               <label htmlFor="otherSoilType" className="mb-2 block text-gray-700">
-                Specify Other Soil Type
+                {t('Specify Other Soil Type')}
               </label>
               <input
                 id="otherSoilType"
@@ -170,11 +172,11 @@ export function AddPlotModal({
                 value={otherSoil}
                 onChange={(e) => setOtherSoil(e.target.value)}
                 className={`${field} pr-10`}
-                placeholder="Type soil type..."
+                placeholder={t('Type soil type...')}
               />
               {voice.supported && (
                 <MicButton
-                  label="Dictate soil type"
+                  label={t('Dictate soil type')}
                   active={voice.activeKey === 'otherSoil'}
                   onClick={() => voice.listen('otherSoil')}
                 />
@@ -188,14 +190,14 @@ export function AddPlotModal({
               onClick={cancel}
               className="rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-300"
             >
-              Cancel
+              {t('Cancel')}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-60"
             >
-              {saving ? 'Saving...' : 'Save Plot'}
+              {saving ? t('Saving...') : t('Save Plot')}
             </button>
           </div>
         </form>

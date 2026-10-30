@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { LivePrices } from '@/components/mandi/live-prices'
@@ -53,6 +54,7 @@ const btnSecondary =
 
 export function MandiScreen() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [section, setSection] = useState<SectionKey | null>(null)
   const [location, setLocation] = useState<Location>({ state: null, district: null })
   const [locationOpen, setLocationOpen] = useState(false)
@@ -82,15 +84,15 @@ export function MandiScreen() {
       <header className="z-20 w-full flex-shrink-0 rounded-b-[2rem] bg-green-700 p-4 pb-5 text-white shadow-lg shadow-emerald-900/20">
         <div className="flex items-center">
           {section ? (
-            <button type="button" onClick={() => setSection(null)} aria-label="Back to mandi menu" className="mr-4 p-2">
+            <button type="button" onClick={() => setSection(null)} aria-label={t('Back to mandi menu')} className="mr-4 p-2">
               <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
             </button>
           ) : (
-            <Link href="/" aria-label="Back to home" className="mr-4 p-2">
+            <Link href="/" aria-label={t('Back to home')} className="mr-4 p-2">
               <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
             </Link>
           )}
-          <h1 className="text-xl font-bold">{section ? TITLES[section] : 'Mandi Services'}</h1>
+          <h1 className="text-xl font-bold">{section ? t(TITLES[section]) : t('Mandi Services')}</h1>
           <div className="ml-auto">
             <i className="ph ph-bell text-xl" aria-hidden="true" />
           </div>
@@ -101,7 +103,7 @@ export function MandiScreen() {
         {!section && (
           <section className="space-y-5">
             <p className="text-center text-sm font-semibold text-gray-600">
-              Explore market prices, find buyers, and manage your farm logistics.
+              {t('Explore market prices, find buyers, and manage your farm logistics.')}
             </p>
             <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-5">
               {MENU.map((m, i) => (
@@ -114,7 +116,7 @@ export function MandiScreen() {
                 >
                   {m.soon && (
                     <span className="absolute right-3 top-3 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                      Under development
+                      {t('Under development')}
                     </span>
                   )}
                   <div
@@ -123,8 +125,8 @@ export function MandiScreen() {
                   >
                     <i className={`ph-fill ${m.icon} text-3xl text-white drop-shadow`} aria-hidden="true" />
                   </div>
-                  <h2 className="mb-1 text-center text-base font-extrabold text-gray-800">{m.title}</h2>
-                  <p className="text-center text-xs font-semibold text-gray-500">{m.desc}</p>
+                  <h2 className="mb-1 text-center text-base font-extrabold text-gray-800">{t(m.title)}</h2>
+                  <p className="text-center text-xs font-semibold text-gray-500">{t(m.desc)}</p>
                 </button>
               ))}
             </div>
@@ -141,14 +143,14 @@ export function MandiScreen() {
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
                 <i className="ph ph-map-pin text-3xl text-blue-500" aria-hidden="true" />
               </div>
-              <h2 className="mb-2 text-lg font-semibold text-gray-800">Nearby Locator</h2>
-              <p className="mb-4 text-gray-600">Locate nearby mandis, warehouses, and cold storage facilities</p>
+              <h2 className="mb-2 text-lg font-semibold text-gray-800">{t('Nearby Locator')}</h2>
+              <p className="mb-4 text-gray-600">{t('Locate nearby mandis, warehouses, and cold storage facilities')}</p>
               <Link href="/nearby-locator" className={btnPrimary}>
-                Enable Location
+                {t('Enable Location')}
               </Link>
             </div>
             <div className="neu rounded-3xl p-4">
-              <h3 className="mb-3 font-semibold text-gray-800">Nearby Services</h3>
+              <h3 className="mb-3 font-semibold text-gray-800">{t('Nearby Services')}</h3>
               <ul className="space-y-3">
                 {NEARBY.map((n) => (
                   <li key={n.name} className="flex items-center neu-inset rounded-2xl p-3">
@@ -156,8 +158,8 @@ export function MandiScreen() {
                       <i className={`ph ${n.icon} text-xl ${n.fg}`} aria-hidden="true" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium">{n.name}</h4>
-                      <p className="text-sm text-gray-600">{n.dist}</p>
+                      <h4 className="font-medium">{t(n.name)}</h4>
+                      <p className="text-sm text-gray-600">{n.dist.replace(' km away', '')} {t('km away')}</p>
                     </div>
                     <i className="ph ph-caret-right text-gray-400" aria-hidden="true" />
                   </li>
@@ -173,27 +175,27 @@ export function MandiScreen() {
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100">
                 <i className="ph ph-handshake text-3xl text-yellow-500" aria-hidden="true" />
               </div>
-              <h2 className="mb-2 text-lg font-semibold text-gray-800">B2B Marketplace</h2>
-              <p className="mb-4 text-gray-600">Sell your produce directly to bulk buyers</p>
+              <h2 className="mb-2 text-lg font-semibold text-gray-800">{t('B2B Marketplace')}</h2>
+              <p className="mb-4 text-gray-600">{t('Sell your produce directly to bulk buyers')}</p>
               <Link href="/b2b-marketplace" className={`${btnPrimary} mb-4`}>
-                <i className="ph ph-storefront mr-2" aria-hidden="true" /> Enter Market
+                <i className="ph ph-storefront mr-2" aria-hidden="true" /> {t('Enter Market')}
               </Link>
               <div className="grid grid-cols-2 gap-3">
                 <Link href="/create-listing" className={btnSecondary}>
                   <i className="ph ph-plus-circle mb-2 text-2xl" aria-hidden="true" />
-                  <span className="text-sm font-medium">List Produce</span>
+                  <span className="text-sm font-medium">{t('List Produce')}</span>
                 </Link>
                 <button type="button" className={btnSecondary}>
                   <i className="ph ph-magnifying-glass mb-2 text-2xl" aria-hidden="true" />
-                  <span className="text-sm font-medium">Find Buyers</span>
+                  <span className="text-sm font-medium">{t('Find Buyers')}</span>
                 </button>
               </div>
             </div>
             <div className="neu rounded-3xl p-4">
-              <h3 className="mb-3 font-semibold text-gray-800">Recent Transactions</h3>
+              <h3 className="mb-3 font-semibold text-gray-800">{t('Recent Transactions')}</h3>
               <div className="py-6 text-center">
                 <i className="ph ph-shopping-cart mb-2 text-3xl text-gray-400" aria-hidden="true" />
-                <p className="text-gray-500">No transactions yet</p>
+                <p className="text-gray-500">{t('No transactions yet')}</p>
               </div>
             </div>
           </section>
@@ -205,14 +207,14 @@ export function MandiScreen() {
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-purple-100">
                 <i className="ph ph-truck text-3xl text-purple-500" aria-hidden="true" />
               </div>
-              <h2 className="mb-2 text-lg font-semibold text-gray-800">Mandi on Wheels</h2>
-              <p className="mb-4 text-gray-600">Book vehicles for transporting your produce</p>
+              <h2 className="mb-2 text-lg font-semibold text-gray-800">{t('Mandi on Wheels')}</h2>
+              <p className="mb-4 text-gray-600">{t('Book vehicles for transporting your produce')}</p>
               <Link href="/book-logistics" className={btnPrimary}>
-                <i className="ph ph-calendar-plus mr-2" aria-hidden="true" /> Book Now
+                <i className="ph ph-calendar-plus mr-2" aria-hidden="true" /> {t('Book Now')}
               </Link>
             </div>
             <div className="neu rounded-3xl p-4">
-              <h3 className="mb-3 font-semibold text-gray-800">Available Services</h3>
+              <h3 className="mb-3 font-semibold text-gray-800">{t('Available Services')}</h3>
               <ul className="space-y-3">
                 {LOGISTICS.map((l) => (
                   <li key={l.name} className="flex items-center justify-between neu-inset rounded-2xl p-3">
@@ -221,8 +223,8 @@ export function MandiScreen() {
                         <i className={`ph ${l.icon} ${l.fg}`} aria-hidden="true" />
                       </div>
                       <div>
-                        <h4 className="font-medium">{l.name}</h4>
-                        <p className="text-sm text-gray-600">{l.desc}</p>
+                        <h4 className="font-medium">{t(l.name)}</h4>
+                        <p className="text-sm text-gray-600">{t(l.desc)}</p>
                       </div>
                     </div>
                     <i className="ph ph-caret-right text-gray-400" aria-hidden="true" />
@@ -241,15 +243,15 @@ export function MandiScreen() {
           <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setSoonItem(null)} aria-hidden="true" />
           <div className="relative z-10 w-full max-w-xs rounded-xl bg-white p-6 shadow-xl">
             <h3 id="soon-title" className="mb-2 text-lg font-semibold text-gray-800">
-              {SOON_TITLES[soonItem]}
+              {t(SOON_TITLES[soonItem])}
             </h3>
-            <p className="mb-6 text-gray-600">This feature is under development. Coming soon!</p>
+            <p className="mb-6 text-gray-600">{t('This feature is under development. Coming soon!')}</p>
             <div className="flex justify-end space-x-3">
               <button type="button" onClick={() => setSoonItem(null)} className="rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 hover:bg-gray-300">
-                Cancel
+                {t('Cancel')}
               </button>
               <button type="button" autoFocus onClick={() => setSoonItem(null)} className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700">
-                OK
+                {t('OK')}
               </button>
             </div>
           </div>

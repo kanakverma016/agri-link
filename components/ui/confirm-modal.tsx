@@ -1,10 +1,12 @@
 'use client'
 
+import { useLanguage } from '@/components/providers/language-provider'
+
 export function ConfirmModal({
   open,
   title,
   message,
-  confirmLabel = 'OK',
+  confirmLabel,
   destructive = false,
   onConfirm,
   onCancel,
@@ -17,6 +19,7 @@ export function ConfirmModal({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const { t } = useLanguage()
   if (!open) return null
   return (
     <div
@@ -36,7 +39,7 @@ export function ConfirmModal({
             onClick={onCancel}
             className="rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-300"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <button
             type="button"
@@ -45,7 +48,7 @@ export function ConfirmModal({
               destructive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
             }`}
           >
-            {confirmLabel}
+            {confirmLabel ?? t('OK')}
           </button>
         </div>
       </div>

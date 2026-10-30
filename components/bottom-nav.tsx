@@ -1,6 +1,9 @@
+'use client'
+
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { useLanguage } from '@/components/providers/language-provider'
 
 export type NavKey = 'home' | 'mandi' | 'plots' | 'questions' | 'menu'
 
@@ -19,9 +22,10 @@ export function BottomNav({
   active?: NavKey
   onHomeClick?: (e: React.MouseEvent) => void
 }) {
+  const { t } = useLanguage()
   return (
     <nav
-      aria-label="Main"
+      aria-label={t('Main')}
       className="neu absolute inset-x-2 bottom-3 z-10 flex items-center justify-between gap-0.5 rounded-3xl p-1.5 md:inset-x-auto md:left-1/2 md:w-[34rem] md:-translate-x-1/2"
     >
       {ITEMS.map((item) => {
@@ -44,7 +48,7 @@ export function BottomNav({
               className={cn('ph text-2xl', isActive ? 'ph-fill' : 'ph', item.icon)}
               aria-hidden="true"
             />
-            <span className="text-[11px] font-bold leading-none">{item.label}</span>
+            <span className="text-[11px] font-bold leading-none">{t(item.label)}</span>
           </Link>
         )
       })}

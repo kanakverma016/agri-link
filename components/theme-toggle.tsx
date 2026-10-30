@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/components/providers/language-provider'
 
 const subscribe = (cb: () => void) => {
   const obs = new MutationObserver(cb)
@@ -12,6 +13,7 @@ const getSnapshot = () => document.documentElement.classList.contains('dark')
 
 export function ThemeToggle({ className }: { className?: string }) {
   const dark = useSyncExternalStore(subscribe, getSnapshot, () => false)
+  const { t } = useLanguage()
 
   const toggle = () => {
     const next = !dark
@@ -30,7 +32,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={toggle}
       role="switch"
       aria-checked={dark}
-      aria-label="Dark theme"
+      aria-label={t('Dark theme')}
       suppressHydrationWarning
       className={cn(
         'relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xl text-amber-500 neu-btn dark:text-sky-300',

@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   if (!apiKey) return jsonError('News service is not configured (NEWSDATA_API_KEY).', 503)
 
   const lang = new URL(request.url).searchParams.get('lang')
-  if (lang !== 'en' && lang !== 'hi') return jsonError('Unsupported language.', 400)
+  if (lang !== 'en' && lang !== 'hi' && lang !== 'mr') return jsonError('Unsupported language.', 400)
 
   const url = new URL('https://newsdata.io/api/1/news')
   url.searchParams.set('apikey', apiKey)

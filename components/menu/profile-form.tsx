@@ -8,6 +8,7 @@ import { useAuth } from '@/components/providers/auth-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { AlertModal, useAlert } from '@/components/ui/alert-modal'
+import { useLanguage } from '@/components/providers/language-provider'
 
 const INPUT = 'w-full rounded-md border border-gray-300 p-3'
 
@@ -24,6 +25,7 @@ type Form = {
 export function ProfileForm() {
   const { user, profile, refreshProfile } = useAuth()
   const { alert, showAlert, closeAlert } = useAlert()
+  const { t } = useLanguage()
   const [form, setForm] = useState<Form>({
     name: '',
     phone: '',
@@ -66,10 +68,10 @@ export function ProfileForm() {
       if (error) throw error
       setPicture(url)
       await refreshProfile()
-      showAlert('Success', 'Profile picture updated!')
+      showAlert(t('Success'), t('Profile picture updated!'))
     } catch (error) {
       console.error('Error uploading image: ', error)
-      showAlert('Upload Error', 'Could not upload your picture. Please try again.')
+      showAlert(t('Upload Error'), t('Could not upload your picture. Please try again.'))
       setPicture(previous)
     } finally {
       setUploading(false)
@@ -95,10 +97,10 @@ export function ProfileForm() {
         .eq('id', user.uid)
       if (error) throw error
       await refreshProfile()
-      showAlert('Success', 'Your profile has been updated!')
+      showAlert(t('Success'), t('Your profile has been updated!'))
     } catch (error) {
       console.error('Error updating profile: ', error)
-      showAlert('Error', 'Could not save changes. Please try again.')
+      showAlert(t('Error'), t('Could not save changes. Please try again.'))
     } finally {
       setSaving(false)
     }
@@ -131,12 +133,12 @@ export function ProfileForm() {
         <div className="flex items-center px-4 py-3">
           <Link
             href="/menu"
-            aria-label="Back to menu"
+            aria-label={t('Back to menu')}
             className="mr-4 rounded-full p-1 text-gray-600 hover:bg-gray-100"
           >
             <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
           </Link>
-          <h1 className="text-xl font-bold text-green-700">Edit Profile</h1>
+          <h1 className="text-xl font-bold text-green-700">{t('Edit Profile')}</h1>
         </div>
       </nav>
 
@@ -147,14 +149,14 @@ export function ProfileForm() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={picture}
-                alt="Profile"
+                alt={t('Profile')}
                 className="h-24 w-24 rounded-full border-4 border-green-200 object-cover"
               />
               {uploading && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black bg-opacity-50">
                   <div
                     role="status"
-                    aria-label="Uploading"
+                    aria-label={t('Uploading')}
                     className="h-8 w-8 animate-spin rounded-full border-2 border-green-200 border-t-green-600"
                   />
                 </div>
@@ -164,7 +166,7 @@ export function ProfileForm() {
               htmlFor="image-upload"
               className="cursor-pointer text-sm font-medium text-green-600 hover:text-green-700"
             >
-              Change Picture
+              {t('Change Picture')}
             </label>
             <input
               type="file"
@@ -176,10 +178,10 @@ export function ProfileForm() {
           </div>
 
           <div className="space-y-4 rounded-xl bg-white p-4 shadow-sm">
-            {field('name', 'Full Name')}
+            {field('name', t('Full Name'))}
             <div>
               <label htmlFor="profile-email" className="mb-1 block text-sm font-medium text-gray-700">
-                Email (Cannot be changed)
+                {t('Email (Cannot be changed)')}
               </label>
               <input
                 id="profile-email"
@@ -189,12 +191,12 @@ export function ProfileForm() {
                 className={`${INPUT} bg-gray-100`}
               />
             </div>
-            {field('phone', 'Phone Number', 'tel')}
-            {field('land', 'Land Holding (in acres)', 'number')}
-            {field('state', 'State')}
-            {field('district', 'District')}
-            {field('block', 'Block')}
-            {field('village', 'Village')}
+            {field('phone', t('Phone Number'), 'tel')}
+            {field('land', t('Land Holding (in acres)'), 'number')}
+            {field('state', t('State'))}
+            {field('district', t('District'))}
+            {field('block', t('Block'))}
+            {field('village', t('Village'))}
           </div>
 
           <button
@@ -202,7 +204,7 @@ export function ProfileForm() {
             disabled={saving}
             className="flex w-full items-center justify-center rounded-lg bg-green-600 p-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-70"
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? t('Saving...') : t('Save Changes')}
           </button>
         </form>
       </main>

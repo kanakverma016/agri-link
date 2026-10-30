@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useLiveQuery } from '@/lib/use-live-query'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { BottomNav } from '@/components/bottom-nav'
 import { Spinner } from '@/components/ui/spinner'
@@ -14,6 +15,7 @@ type Plot = { id: string; plotName: string; area: number; areaUnit: string; soil
 
 export function PlotsScreen() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const { alert, showAlert, closeAlert } = useAlert()
   const [modalOpen, setModalOpen] = useState(false)
   const {
@@ -31,7 +33,7 @@ export function PlotsScreen() {
     <MobileFrame className="bg-gray-50">
       <nav className="z-10 w-full flex-shrink-0 bg-white shadow-sm">
         <div className="flex items-center px-4 py-3">
-          <h1 className="text-xl font-bold text-green-700">My Plots</h1>
+          <h1 className="text-xl font-bold text-green-700">{t('My Plots')}</h1>
         </div>
       </nav>
 
@@ -41,15 +43,15 @@ export function PlotsScreen() {
             <div className="flex justify-center">
               <Spinner />
             </div>
-            <p className="mt-2 text-gray-500">Loading your plots...</p>
+            <p className="mt-2 text-gray-500">{t('Loading your plots...')}</p>
           </div>
         ) : loadError ? (
-          <p className="text-center text-red-500">Error loading plots.</p>
+          <p className="text-center text-red-500">{t('Error loading plots.')}</p>
         ) : plots.length === 0 ? (
           <div className="p-10 text-center">
             <i className="ph ph-map-trifold text-6xl text-gray-400" aria-hidden="true" />
-            <h3 className="mt-4 text-lg font-semibold text-gray-700">No Plots Found</h3>
-            <p className="text-gray-500">Get started by adding your first plot of land.</p>
+            <h3 className="mt-4 text-lg font-semibold text-gray-700">{t('No Plots Found')}</h3>
+            <p className="text-gray-500">{t('Get started by adding your first plot of land.')}</p>
           </div>
         ) : (
           <ul className="space-y-4">
@@ -63,7 +65,7 @@ export function PlotsScreen() {
                     <div>
                       <h2 className="text-lg font-semibold text-gray-800">{p.plotName}</h2>
                       <p className="text-sm text-gray-500">
-                        {p.area} {p.areaUnit} • {p.soilType}
+                        {p.area} {t(p.areaUnit)} • {t(p.soilType)}
                       </p>
                     </div>
                     <i className="ph ph-caret-right text-xl text-gray-400" aria-hidden="true" />
@@ -78,7 +80,7 @@ export function PlotsScreen() {
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        aria-label="Add new plot"
+        aria-label={t('Add new plot')}
         className="absolute bottom-20 right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition-all hover:bg-green-700 active:scale-95"
       >
         <i className="ph ph-plus text-3xl" aria-hidden="true" />
@@ -90,7 +92,7 @@ export function PlotsScreen() {
           open={modalOpen}
           userId={user.uid}
           onClose={() => setModalOpen(false)}
-          onError={(m) => showAlert('Error', m)}
+          onError={(m) => showAlert(t('Error'), m)}
         />
       )}
       <AlertModal alert={alert} onClose={closeAlert} />

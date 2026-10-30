@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +15,7 @@ type Props = {
 
 export function CreatePostPage({ onClose, showAlert }: Props) {
   const { user, profile } = useAuth()
+  const { t, speechLang } = useLanguage()
   const [caption, setCaption] = useState('')
   const [tags, setTags] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -23,8 +25,9 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
   const videoInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
-  const mic = useSpeechRecognition((text) =>
-    setCaption((prev) => prev + (prev ? ' ' : '') + text),
+  const mic = useSpeechRecognition(
+    (text) => setCaption((prev) => prev + (prev ? ' ' : '') + text),
+    speechLang,
   )
 
   useEffect(() => {
@@ -58,7 +61,7 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
     const trimmed = caption.trim()
     if ((!trimmed && !file) || !user) return
     if (!profile) {
-      showAlert('Error', 'User data not loaded. Please wait a moment and try again.')
+      showAlert(t('Error'), t('User data not loaded. Please wait a moment and try again.'))
       return
     }
 
@@ -77,6 +80,7 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
         .insert({
           userId: user.uid,
           authorName: profile.name || 'Anonymous User',
+
           authorProfilePic: profile.profilePicture || user.photoURL || DEFAULT_PROFILE_LOGO,
           caption: trimmed,
           tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
@@ -87,8 +91,8 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
     } catch (error) {
       console.error('Error saving post:', error)
       showAlert(
-        'Post Error',
-        `Could not save your post. Please try again. ${error instanceof Error ? error.message : ''}`,
+        t('Post Error'),
+        `${t('Could not save your post. Please try again.')} ${error instanceof Error ? error.message : ''}`,
       )
     } finally {
       setSubmitting(false)
@@ -100,10 +104,10 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
     <div className="absolute inset-0 z-50 flex flex-col bg-gray-50">
       <nav className="w-full flex-shrink-0 bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
-          <button type="button" onClick={onClose} aria-label="Back" className="text-gray-600">
+          <button type="button" onClick={onClose} aria-label={t('Back')} className="text-gray-600">
             <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
           </button>
-          <h2 className="flex-grow text-center text-xl font-bold text-gray-800">Post it</h2>
+          <h2 className="flex-grow text-center text-xl font-bold text-gray-800">{t('Post it')}</h2>
           <button
             type="submit"
             form="create-post-form"
@@ -113,7 +117,7 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
               !canPost && 'cursor-not-allowed opacity-50',
             )}
           >
-            Post it
+            {t('Post it')}
           </button>
         </div>
       </nav>
@@ -121,7 +125,7 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
         <form id="create-post-form" onSubmit={handleSubmit} className="flex h-full flex-col">
           <div className="relative mb-4">
             <label htmlFor="post-caption" className="sr-only">
-              Caption
+              {t('Caption')}
             </label>
             <textarea
               id="post-caption"
@@ -129,13 +133,13 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               className="w-full resize-none border-none p-3 text-lg placeholder-gray-400 focus:outline-none"
-              placeholder="Hint on post creation"
+              placeholder={t('Hint on post creation')}
             />
             {mic.supported && (
               <button
                 type="button"
                 onClick={mic.start}
-                aria-label="Dictate caption"
+                aria-label={t('Dictate caption')}
                 className={cn(
                   'absolute right-3 top-3 hover:text-blue-600',
                   mic.listening ? 'text-blue-600' : 'text-gray-500',
@@ -151,7 +155,7 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
               className="flex cursor-pointer items-center rounded-lg border border-green-300 bg-green-50 p-3 hover:bg-green-100"
             >
               <i className="ph ph-video-camera mr-3 text-2xl text-green-600" aria-hidden="true" />
-              <span className="font-medium text-green-700">Click and add video</span>
+              <span className="font-medium text-green-700">{t('Click and add video')}</span>
               <input
                 ref={videoInputRef}
                 type="file"
@@ -166,7 +170,7 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
               className="flex cursor-pointer items-center rounded-lg border border-green-300 bg-green-50 p-3 hover:bg-green-100"
             >
               <i className="ph ph-image mr-3 text-2xl text-green-600" aria-hidden="true" />
-              <span className="font-medium text-green-700">Add photo</span>
+              <span className="font-medium text-green-700">{t('Add photo')}</span>
               <input
                 ref={photoInputRef}
                 type="file"
@@ -184,12 +188,12 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
                   <video src={previewUrl} controls className="h-full w-full object-cover" />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                  <img src={previewUrl} alt={t('Preview')} className="h-full w-full object-cover" />
                 )}
                 <button
                   type="button"
                   onClick={removeFile}
-                  aria-label="Remove file"
+                  aria-label={t('Remove file')}
                   className="absolute right-2 top-2 rounded-full bg-red-500 p-1 text-white"
                 >
                   <i className="ph ph-x text-lg" aria-hidden="true" />
@@ -199,7 +203,7 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
           )}
           <div className="mb-4">
             <label htmlFor="post-tags" className="mb-2 block text-sm font-medium text-gray-700">
-              Tags (comma-separated)
+              {t('Tags (comma-separated)')}
             </label>
             <input
               type="text"
@@ -207,7 +211,7 @@ export function CreatePostPage({ onClose, showAlert }: Props) {
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2"
-              placeholder="e.g., wheat, tractor, fertilizer"
+              placeholder={t('e.g., wheat, tractor, fertilizer')}
             />
           </div>
           {progress !== null && (

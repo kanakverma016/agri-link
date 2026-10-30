@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { isProfileComplete, useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
+import { LanguageToggle } from '@/components/language-toggle'
 
 const redirectUrl = () =>
   process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`
@@ -31,13 +33,14 @@ const BG_IMAGE =
   'https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1932&q=80'
 
 function SubmitButton({ loading, children }: { loading: boolean; children: React.ReactNode }) {
+  const { t } = useLanguage()
   return (
     <button
       type="submit"
       disabled={loading}
       className="flex w-full items-center justify-center rounded-lg bg-green-600 p-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-70"
     >
-      {loading ? <div className="btn-spinner" role="status" aria-label="Loading" /> : children}
+      {loading ? <div className="btn-spinner" role="status" aria-label={t('Loading')} /> : children}
     </button>
   )
 }
@@ -84,6 +87,7 @@ function FarmFields({
   onChange: (key: keyof LocationFields, value: string) => void
   withPhone?: boolean
 }) {
+  const { t } = useLanguage()
   const field = (
     key: keyof LocationFields,
     placeholder: string,
@@ -105,18 +109,19 @@ function FarmFields({
   )
   return (
     <>
-      {withPhone && field('phone', 'Phone Number', 'tel', 'tel')}
-      {field('land', 'Land Holding (in acres)', 'number')}
-      {field('state', 'State (e.g., Uttar Pradesh)')}
-      {field('district', 'District (e.g., Meerut)')}
-      {field('block', 'Block')}
-      {field('village', 'Village')}
+      {withPhone && field('phone', t('Phone Number'), 'tel', 'tel')}
+      {field('land', t('Land Holding (in acres)'), 'number')}
+      {field('state', t('State (e.g., Uttar Pradesh)'))}
+      {field('district', t('District (e.g., Meerut)'))}
+      {field('block', t('Block'))}
+      {field('village', t('Village'))}
     </>
   )
 }
 
 export function LoginScreen() {
   const router = useRouter()
+  const { t } = useLanguage()
   const [mode, setMode] = useState<Mode>('login')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -152,7 +157,7 @@ export function LoginScreen() {
     }
   }, [authLoading, user, profile, mode, router])
 
-  const messageOf = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong.')
+  const messageOf = (e: unknown) => (e instanceof Error ? e.message : t('Something went wrong.'))
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -165,8 +170,8 @@ export function LoginScreen() {
     if (signInError) {
       setError(
         /not confirmed/i.test(signInError.message)
-          ? 'Please verify your email before logging in. Check your inbox.'
-          : 'Invalid email or password.',
+          ? t('Please verify your email before logging in. Check your inbox.')
+          : t('Invalid email or password.'),
       )
       setLoading(false)
       return
@@ -178,7 +183,7 @@ export function LoginScreen() {
     setError('')
     const googleEnabled = await isGoogleEnabled()
     if (!googleEnabled) {
-      setError('Google sign-in is not enabled yet. Please use email and password.')
+      setError(t('Google sign-in is not enabled yet. Please use email and password.'))
       return
     }
     const { data, error: oauthError } = await createClient().auth.signInWithOAuth({
@@ -186,7 +191,7 @@ export function LoginScreen() {
       options: { redirectTo: redirectUrl(), skipBrowserRedirect: true },
     })
     if (oauthError || !data.url) {
-      setError(messageOf(oauthError ?? new Error('Google sign-in is not available right now.')))
+      setError(messageOf(oauthError ?? new Error(t('Google sign-in is not available right now.'))))
       return
     }
     // Google blocks framing, so inside the preview iframe the flow opens in a new tab.
@@ -199,7 +204,7 @@ export function LoginScreen() {
     setLoading(true)
     setError('')
     if (!user) {
-      setError('You are not logged in.')
+      setError(t('You are not logged in.'))
       setLoading(false)
       return
     }
@@ -265,21 +270,24 @@ export function LoginScreen() {
       </div>
 
       <div className="relative z-10 flex min-h-dvh flex-col items-center justify-center p-4">
+        <div className="absolute right-4 top-4">
+          <LanguageToggle />
+        </div>
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-green-700">SmartKrishi</h1>
-          <p className="text-lg text-gray-600">Your Digital Farming Partner</p>
+          <p className="text-lg text-gray-600">{t('Your Digital Farming Partner')}</p>
         </div>
 
         <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl sm:p-8">
           {mode === 'login' && (
             <div>
-              <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">Welcome Back</h2>
+              <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">{t('Welcome Back')}</h2>
               <form onSubmit={handleLogin} className="space-y-4">
                 <IconInput
                   icon="ph-envelope"
                   type="email"
-                  placeholder="Email"
-                  aria-label="Email"
+                  placeholder={t('Email')}
+                  aria-label={t('Email')}
                   autoComplete="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
@@ -288,18 +296,18 @@ export function LoginScreen() {
                 <IconInput
                   icon="ph-lock"
                   type="password"
-                  placeholder="Password"
-                  aria-label="Password"
+                  placeholder={t('Password')}
+                  aria-label={t('Password')}
                   autoComplete="current-password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   required
                 />
-                <SubmitButton loading={loading}>Login</SubmitButton>
+                <SubmitButton loading={loading}>{t('Login')}</SubmitButton>
               </form>
               <div className="my-4 flex items-center">
                 <hr className="flex-grow border-gray-200" />
-                <span className="mx-4 text-sm text-gray-500">OR</span>
+                <span className="mx-4 text-sm text-gray-500">{t('OR')}</span>
                 <hr className="flex-grow border-gray-200" />
               </div>
               <button
@@ -313,16 +321,16 @@ export function LoginScreen() {
                   <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
                   <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C42.021,35.596,44,30.038,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
                 </svg>
-                <span>Sign in with Google</span>
+                <span>{t('Sign in with Google')}</span>
               </button>
               <p className="mt-6 text-center text-sm text-gray-600">
-                No account?{' '}
+                {t('No account?')}{' '}
                 <button
                   type="button"
                   onClick={() => switchMode('register')}
                   className="font-semibold text-green-600 hover:underline"
                 >
-                  Register here
+                  {t('Register here')}
                 </button>
               </p>
             </div>
@@ -330,14 +338,14 @@ export function LoginScreen() {
 
           {mode === 'register' && (
             <div>
-              <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">Create Account</h2>
+              <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">{t('Create Account')}</h2>
               <form onSubmit={handleRegister} className="space-y-3">
                 <input
                   type="text"
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
-                  placeholder="Full Name"
-                  aria-label="Full Name"
+                  placeholder={t('Full Name')}
+                  aria-label={t('Full Name')}
                   autoComplete="name"
                   required
                   className={INPUT}
@@ -346,8 +354,8 @@ export function LoginScreen() {
                   type="email"
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="Email"
-                  aria-label="Email"
+                  placeholder={t('Email')}
+                  aria-label={t('Email')}
                   autoComplete="email"
                   required
                   className={INPUT}
@@ -356,8 +364,8 @@ export function LoginScreen() {
                   type="password"
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder="Password (min. 6 characters)"
-                  aria-label="Password"
+                  placeholder={t('Password (min. 6 characters)')}
+                  aria-label={t('Password')}
                   autoComplete="new-password"
                   minLength={6}
                   required
@@ -367,16 +375,16 @@ export function LoginScreen() {
                   values={regFields}
                   onChange={(k, v) => setRegFields((prev) => ({ ...prev, [k]: v }))}
                 />
-                <SubmitButton loading={loading}>Register</SubmitButton>
+                <SubmitButton loading={loading}>{t('Register')}</SubmitButton>
               </form>
               <p className="mt-6 text-center text-sm text-gray-600">
-                Already have an account?{' '}
+                {t('Already have an account?')}{' '}
                 <button
                   type="button"
                   onClick={() => switchMode('login')}
                   className="font-semibold text-green-600 hover:underline"
                 >
-                  Login here
+                  {t('Login here')}
                 </button>
               </p>
             </div>
@@ -385,50 +393,50 @@ export function LoginScreen() {
           {mode === 'complete-profile' && (
             <div>
               <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">
-                Complete Your Profile
+                {t('Complete Your Profile')}
               </h2>
               <form onSubmit={handleCompleteProfile} className="space-y-3">
                 <input
                   type="text"
                   value={googleName}
                   readOnly
-                  aria-label="Name"
+                  aria-label={t('Name')}
                   className="w-full rounded-lg border border-gray-300 bg-gray-200 p-3 text-gray-900"
                 />
                 <input
                   type="email"
                   value={googleEmail}
                   readOnly
-                  aria-label="Email"
+                  aria-label={t('Email')}
                   className="w-full rounded-lg border border-gray-300 bg-gray-200 p-3 text-gray-900"
                 />
                 <FarmFields
                   values={profileFields}
                   onChange={(k, v) => setProfileFields((prev) => ({ ...prev, [k]: v }))}
                 />
-                <SubmitButton loading={loading}>Save and Continue</SubmitButton>
+                <SubmitButton loading={loading}>{t('Save and Continue')}</SubmitButton>
               </form>
             </div>
           )}
 
           {mode === 'verify-sent' && (
             <div>
-              <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">Check Your Email!</h2>
+              <h2 className="mb-6 text-center text-2xl font-semibold text-gray-800">{t('Check Your Email!')}</h2>
               <div className="text-center">
                 <i className="ph ph-paper-plane-right text-6xl text-green-600" aria-hidden="true" />
                 <p className="mt-4 text-gray-600">
-                  {"Registration successful! We've sent a verification link to "}
+                  {t("Registration successful! We've sent a verification link to ")}
                   <strong className="text-gray-800">{regEmail}</strong>.
                 </p>
                 <p className="mt-2 text-gray-600">
-                  Please click the link in that email to activate your account, then you can log in.
+                  {t('Please click the link in that email to activate your account, then you can log in.')}
                 </p>
                 <button
                   type="button"
                   onClick={() => switchMode('login')}
                   className="mt-6 w-full rounded-lg bg-green-600 p-3 font-semibold text-white transition-colors hover:bg-green-700"
                 >
-                  Back to Login
+                  {t('Back to Login')}
                 </button>
               </div>
             </div>

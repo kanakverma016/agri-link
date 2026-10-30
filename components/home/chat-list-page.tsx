@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useLiveQuery } from '@/lib/use-live-query'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import type { ChatDetails } from '@/lib/types'
 
 type ChatRow = {
@@ -25,6 +26,7 @@ export function ChatListPage({
   onOpenChat: (chat: ChatDetails) => void
 }) {
   const { user } = useAuth()
+  const { t, locale } = useLanguage()
   const {
     items: rows,
     loading,
@@ -67,14 +69,14 @@ export function ChatListPage({
               chatId: row.id,
               lastMessage: row.lastMessage || '...',
               time: row.lastMessageTimestamp
-                ? new Date(row.lastMessageTimestamp).toLocaleTimeString([], {
+                ? new Date(row.lastMessageTimestamp).toLocaleTimeString(locale, {
                     hour: '2-digit',
                     minute: '2-digit',
                   })
                 : '',
               otherUser: {
                 uid: otherUid,
-                name: other ? other.name || 'Unknown User' : 'Deleted User',
+                name: other ? other.name || t('Unknown User') : t('Deleted User'),
                 profilePicture: other?.profilePicture || DEFAULT_PROFILE_LOGO,
               },
             },
@@ -88,16 +90,16 @@ export function ChatListPage({
           <button
             type="button"
             onClick={onBack}
-            aria-label="Back"
+            aria-label={t('Back')}
             className="mr-4 rounded-full p-1 text-gray-600 hover:bg-gray-100"
           >
             <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
           </button>
-          <h2 className="text-xl font-bold text-gray-800">Messenger</h2>
+          <h2 className="text-xl font-bold text-gray-800">{t('Messenger')}</h2>
           <button
             type="button"
             onClick={onNewChat}
-            aria-label="New message"
+            aria-label={t('New message')}
             className="rounded-full p-1 text-green-600 hover:bg-green-50"
           >
             <i className="ph ph-pencil-simple-line text-2xl" aria-hidden="true" />
@@ -106,11 +108,11 @@ export function ChatListPage({
       </nav>
       <main className="flex-grow overflow-y-auto">
         {error ? (
-          <p className="p-10 text-center text-red-500">Error loading conversations.</p>
+          <p className="p-10 text-center text-red-500">{t('Error loading conversations.')}</p>
         ) : chats === null ? (
-          <p className="p-10 text-center text-gray-500">Loading conversations...</p>
+          <p className="p-10 text-center text-gray-500">{t('Loading conversations...')}</p>
         ) : chats.length === 0 ? (
-          <p className="p-10 text-center text-gray-500">No conversations yet.</p>
+          <p className="p-10 text-center text-gray-500">{t('No conversations yet.')}</p>
         ) : (
           chats.map((chat) => (
             <button

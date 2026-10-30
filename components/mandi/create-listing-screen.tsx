@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient, safeFileName, uploadMedia } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/auth-provider'
+import { useLanguage } from '@/components/providers/language-provider'
 import { MobileFrame } from '@/components/mobile-frame'
 import { Spinner } from '@/components/ui/spinner'
 import { AlertModal, useAlert } from '@/components/ui/alert-modal'
@@ -16,6 +17,7 @@ const label = 'mb-1 block text-sm font-medium text-gray-700'
 
 export function CreateListingScreen() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const router = useRouter()
   const { alert, showAlert, closeAlert } = useAlert()
   const [profile, setProfile] = useState<SellerProfile | null>(null)
@@ -44,11 +46,11 @@ export function CreateListingScreen() {
         if (error || !data) throw error ?? new Error('User profile not found.')
         if (cancelled) return
         setProfile(data)
-        setLocation(`${data.district || 'Unknown'}, ${data.state || 'India'}`)
+        setLocation(`${data.district || t('Unknown')}, ${data.state || t('India')}`)
       } catch (err) {
         console.error('Error loading user data: ', err)
         if (!cancelled)
-          showAlert('Error', 'Could not load your profile. Please complete your profile first.')
+          showAlert(t('Error'), t('Could not load your profile. Please complete your profile first.'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -57,7 +59,7 @@ export function CreateListingScreen() {
     return () => {
       cancelled = true
     }
-  }, [user, showAlert])
+  }, [user, showAlert, t])
 
   useEffect(() => {
     if (!imageFile) return
@@ -70,7 +72,7 @@ export function CreateListingScreen() {
     e.preventDefault()
     if (submitting) return
     if (!user || !profile || !imageFile) {
-      showAlert('Missing Info', 'Please fill all fields and upload a photo.')
+      showAlert(t('Missing Info'), t('Please fill all fields and upload a photo.'))
       return
     }
     setSubmitting(true)
@@ -85,7 +87,7 @@ export function CreateListingScreen() {
 
       const { error } = await createClient().from('b2b_listings').insert({
         sellerId: user.uid,
-        sellerName: profile.name || 'Farmer',
+        sellerName: profile.name || t('Farmer'),
         sellerProfilePic: profile.profilePicture || null,
         location,
         cropName: cropName.trim(),
@@ -97,11 +99,11 @@ export function CreateListingScreen() {
         status: 'Active',
       })
       if (error) throw error
-      showAlert('Success', 'Your listing is now live!')
+      showAlert(t('Success'), t('Your listing is now live!'))
       setTimeout(() => router.push('/my-listings'), 1500)
     } catch (err) {
       console.error('Error creating listing: ', err)
-      showAlert('Error', 'Could not create listing. Please try again.')
+      showAlert(t('Error'), t('Could not create listing. Please try again.'))
       setSubmitting(false)
     }
   }
@@ -112,19 +114,19 @@ export function CreateListingScreen() {
         <div className="flex items-center justify-between px-4 py-3">
           <Link
             href="/mandi"
-            aria-label="Back to mandi"
+            aria-label={t('Back to mandi')}
             className="rounded-full p-1 text-gray-600 hover:bg-gray-100"
           >
             <i className="ph ph-arrow-left text-2xl" aria-hidden="true" />
           </Link>
-          <h1 className="text-xl font-bold text-green-700">Create New Listing</h1>
+          <h1 className="text-xl font-bold text-green-700">{t('Create New Listing')}</h1>
           <button
             type="submit"
             form="listing-form"
             disabled={submitting || !profile}
             className="rounded-lg p-2 font-semibold text-green-600 hover:bg-green-50 disabled:opacity-50"
           >
-            {submitting ? 'Posting...' : 'Post'}
+            {submitting ? t('Posting...') : t('Post')}
           </button>
         </div>
       </nav>
@@ -135,7 +137,7 @@ export function CreateListingScreen() {
             <div className="flex justify-center">
               <Spinner />
             </div>
-            <p className="mt-2 text-gray-500">Loading...</p>
+            <p className="mt-2 text-gray-500">{t('Loading...')}</p>
           </div>
         ) : (
           <form id="listing-form" onSubmit={handleSubmit} className="space-y-4">
@@ -148,14 +150,14 @@ export function CreateListingScreen() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={preview}
-                    alt="Selected produce preview"
+                    alt={t('Selected produce preview')}
                     className="mb-2 h-32 w-full rounded-lg object-cover"
                   />
                 ) : (
                   <i className="ph ph-image mb-2 text-4xl text-gray-400" aria-hidden="true" />
                 )}
                 <span className="text-sm font-medium text-gray-600">
-                  {preview ? 'Click to change photo' : 'Upload Produce Photo'}
+                  {preview ? t('Click to change photo') : t('Upload Produce Photo')}
                 </span>
               </label>
               <input
@@ -170,7 +172,7 @@ export function CreateListingScreen() {
             <div className="space-y-4 rounded-xl bg-white p-4 shadow-sm">
               <div>
                 <label htmlFor="cropName" className={label}>
-                  Crop Name
+                  {t('Crop Name')}
                 </label>
                 <input
                   id="cropName"
@@ -178,14 +180,14 @@ export function CreateListingScreen() {
                   value={cropName}
                   onChange={(e) => setCropName(e.target.value)}
                   className={field}
-                  placeholder="e.g., Wheat (HD-2967)"
+                  placeholder={t('e.g., Wheat (HD-2967)')}
                   required
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="quantity" className={label}>
-                    Quantity
+                    {t('Quantity')}
                   </label>
                   <input
                     id="quantity"
@@ -201,7 +203,7 @@ export function CreateListingScreen() {
                 </div>
                 <div>
                   <label htmlFor="quantityUnit" className={label}>
-                    Unit
+                    {t('Unit')}
                   </label>
                   <select
                     id="quantityUnit"
@@ -210,16 +212,16 @@ export function CreateListingScreen() {
                     className={`${field} bg-white`}
                     required
                   >
-                    <option>Quintal</option>
-                    <option>Kg</option>
-                    <option>Ton</option>
+                    <option value="Quintal">{t('Quintal')}</option>
+                    <option value="Kg">{t('Kg')}</option>
+                    <option value="Ton">{t('Ton')}</option>
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="price" className={label}>
-                    Price (₹)
+                    {t('Price (₹)')}
                   </label>
                   <input
                     id="price"
@@ -235,7 +237,7 @@ export function CreateListingScreen() {
                 </div>
                 <div>
                   <label htmlFor="priceUnit" className={label}>
-                    Per
+                    {t('Per')}
                   </label>
                   <select
                     id="priceUnit"
@@ -244,14 +246,14 @@ export function CreateListingScreen() {
                     className={`${field} bg-white`}
                     required
                   >
-                    <option>Quintal</option>
-                    <option>Kg</option>
+                    <option value="Quintal">{t('Quintal')}</option>
+                    <option value="Kg">{t('Kg')}</option>
                   </select>
                 </div>
               </div>
               <div>
                 <label htmlFor="location" className={label}>
-                  Pickup Location
+                  {t('Pickup Location')}
                 </label>
                 <input
                   id="location"
@@ -259,10 +261,10 @@ export function CreateListingScreen() {
                   value={location}
                   readOnly
                   className={`${field} bg-gray-100`}
-                  placeholder="Your location"
+                  placeholder={t('Your location')}
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  This is set from your profile (District, State).
+                  {t('This is set from your profile (District, State).')}
                 </p>
               </div>
             </div>
