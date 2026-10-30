@@ -1,7 +1,7 @@
 import { GeminiError, generateContent } from '@/lib/server/gemini'
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 import { loadFarmerContext } from '@/lib/server/farmer-context'
-import { speakWithClonedVoice } from '@/lib/server/sarvam-voice'
+import { speakWithAgentVoice } from '@/lib/server/sarvam-voice'
 
 export const maxDuration = 60
 
@@ -254,7 +254,7 @@ export async function POST(request: Request) {
     const reply = cleanForSpeech(text)
     if (!reply) return jsonError('The tree could not think of a reply.', 502)
 
-    let audioBase64 = await speakWithClonedVoice(reply, language)
+    let audioBase64 = await speakWithAgentVoice(reply, language)
     let audioType = 'audio/wav'
     if (!audioBase64 && apiKey) {
       audioBase64 = await speak(reply, language, apiKey).catch(() => null)
