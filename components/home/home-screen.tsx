@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useLiveQuery } from '@/lib/use-live-query'
+import { useProfilePictures } from '@/lib/use-profile-pictures'
 import { DEFAULT_PROFILE_LOGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { ChatDetails, Post } from '@/lib/types'
@@ -79,10 +80,26 @@ export function HomeScreen() {
     }
   }, [])
 
+  const authorProfiles = useProfilePictures(posts.map((p) => p.userId))
+
+  const postsWithLatestAuthor = useMemo(
+    () =>
+      posts.map((p) => {
+        const author = authorProfiles[p.userId]
+        if (!author) return p
+        return {
+          ...p,
+          authorProfilePic: author.profilePicture || p.authorProfilePic,
+          authorName: author.name || p.authorName,
+        }
+      }),
+    [posts, authorProfiles],
+  )
+
   const filteredPosts = useMemo(() => {
     const term = search.toLowerCase()
-    if (!term) return posts
-    return posts.filter(
+    if (!term) return postsWithLatestAuthor
+    return postsWithLatestAuthor.filter(
       (p) =>
         p.caption?.toLowerCase().includes(term) ||
         p.tags?.some((tag) => tag.toLowerCase().includes(term)),
