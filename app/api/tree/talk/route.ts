@@ -179,6 +179,41 @@ async function askGemini(system: string, messages: ChatMessage[]) {
   return text
 }
 
+async function askSarvam(system: string, messages: ChatMessage[], apiKey: string) {
+  const res = await fetch(`${SARVAM_URL}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'api-subscription-key': apiKey,
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: process.env.SARVAM_CHAT_MODEL || 'sarvam-105b',
+      messages: [{ role: 'system', content: system }, ...messages],
+      max_tokens: 300,
+      temperature: 0.6,
+      reasoning_effort: null,
+    }),
+    signal: AbortSignal.timeout(12_000),
+  })
+  if (!res.ok) throw new Error(`sarvam_chat_${res.status}`)
+  const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[] }
+  const text = (data.choices?.[0]?.message?.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+  if (!text) throw new Error('sarvam_chat_empty')
+  return text
+}
+
+async function askVoiceModel(system: string, messages: ChatMessage[], apiKey: string | undefined) {
+  if (apiKey && process.env.VOICE_LLM !== 'gemini') {
+    try {
+      return await askSarvam(system, messages, apiKey)
+    } catch (error) {
+      console.error('[tree/talk] sarvam chat failed, using gemini', error instanceof Error ? error.message : error)
+    }
+  }
+  return askGemini(system, messages)
+}
+
 function cleanForSpeech(text: string) {
   return text
     .replace(/[*_#`>~|]/g, '')
@@ -221,6 +256,9 @@ export async function POST(request: Request) {
   const audio = form.get('audio')
   const typed = form.get('text')
 
+  const contextPromise = loadFarmerContext(userId)
+  contextPromise.catch(() => {})
+
   let transcript = ''
   let language = preferred
 
@@ -237,7 +275,7 @@ export async function POST(request: Request) {
       if (!transcript) return Response.json({ code: 'no_speech', error: 'Could not hear anything.' }, { status: 422 })
     }
 
-    const { text: context, summary } = await loadFarmerContext(userId)
+    const { text: context, summary } = await contextPromise
 
     const userMessage = greet
       ? 'The farmer has just opened the app and woken you up. Greet them warmly by name, then in one short sentence mention something useful from their data right now (crop age, a recent action or expense, or a gentle nudge for what to do next). If they have no plots, welcome them and suggest adding their first plot.'
@@ -249,7 +287,7 @@ export async function POST(request: Request) {
       { role: 'user', content: userMessage },
     ]
 
-    const text = await askGemini(system, messages)
+    const text = await askVoiceModel(system, messages, apiKey)
 
     const reply = cleanForSpeech(text)
     if (!reply) return jsonError('The tree could not think of a reply.', 502)
