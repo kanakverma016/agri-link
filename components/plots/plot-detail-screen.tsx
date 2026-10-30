@@ -25,7 +25,7 @@ type Cycle = {
   sellingPrice?: number | null
   totalCost?: number | null
 }
-type Activity = { id: string; type: string; cost: number; description?: string; date: string }
+type Activity = { id: string; type: string; cost: number; description?: string; date: string; createdAt?: string }
 
 const inr = (n: number) => Number(n).toLocaleString('en-IN')
 
@@ -69,12 +69,22 @@ export function PlotDetailScreen() {
     if (!plotId) router.replace('/my-plots')
   }, [plotId, router])
 
-  const { items: activities } = useLiveQuery<Activity>({
+  const { items: rawActivities } = useLiveQuery<Activity>({
     table: 'activities',
     enabled: Boolean(activeCycleId),
     eq: { cycleId: activeCycleId ?? undefined },
     orderBy: 'date',
   })
+
+  const activities = useMemo(
+    () =>
+      [...rawActivities].sort((a, b) => {
+        const byDate = new Date(b.date).getTime() - new Date(a.date).getTime()
+        if (byDate !== 0) return byDate
+        return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+      }),
+    [rawActivities],
+  )
 
   const onError = (message: string) => showAlert(t('Error'), message)
   const closeModal = () => setModal(null)
