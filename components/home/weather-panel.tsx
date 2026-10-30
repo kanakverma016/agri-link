@@ -1,16 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { apiFetch } from '@/lib/api-client'
 import { useLanguage } from '@/components/providers/language-provider'
+import { dayAdvisory, summarizeDay, type ForecastSlot } from '@/lib/weather-insights'
 
-type ForecastItem = {
-  dt: number
-  pop: number
-  main: { temp: number }
-  weather: { main: string; description: string }[]
-}
+type ForecastItem = ForecastSlot
 
 async function fetchForecast(url: string): Promise<ForecastItem[]> {
   const res = await apiFetch(url)
@@ -105,21 +101,29 @@ export function WeatherPanel({
                 groupByDay(data).map((items) => {
                   const first = items[0]
                   const date = new Date(first.dt * 1000)
-                  const temps = items.map((i) => i.main.temp)
+                  const day = summarizeDay(items)
                   return (
-                    <tr key={first.dt} className="border-b bg-white">
-                      <td className="px-4 py-3">
-                        {date.getDate()} {date.toLocaleString(locale, { month: 'short' })}
-                      </td>
-                      <td className="px-4 py-3">
-                        {Math.round(Math.min(...temps))}° - {Math.round(Math.max(...temps))}°C
-                      </td>
-                      <td className="px-4 py-3">{Math.round(first.pop * 100)}%</td>
-                      <td className="flex items-center space-x-2 px-4 py-3">
-                        <WeatherIcon main={first.weather[0].main} />
-                        <span className="capitalize">{t(first.weather[0].description)}</span>
-                      </td>
-                    </tr>
+                    <Fragment key={first.dt}>
+                      <tr className="bg-white">
+                        <td className="px-4 py-3">
+                          {date.getDate()} {date.toLocaleString(locale, { month: 'short' })}
+                        </td>
+                        <td className="px-4 py-3">
+                          {day.minTemp}° - {day.maxTemp}°C
+                        </td>
+                        <td className="px-4 py-3">{day.rainChance}%</td>
+                        <td className="flex items-center space-x-2 px-4 py-3">
+                          <WeatherIcon main={day.main} />
+                          <span className="capitalize">{t(day.description)}</span>
+                        </td>
+                      </tr>
+                      <tr className="border-b bg-white">
+                        <td colSpan={4} className="px-4 pb-3 text-xs text-green-700">
+                          <i className="ph-fill ph-plant mr-1" aria-hidden="true" />
+                          {t(dayAdvisory(day))}
+                        </td>
+                      </tr>
+                    </Fragment>
                   )
                 })}
             </tbody>
