@@ -1,5 +1,6 @@
 import { jsonError, verifyUser } from '@/lib/server/verify-auth'
 import { GeminiError, generateContent } from '@/lib/server/gemini'
+import { generateWithSarvamFallback } from '@/lib/server/ai-fallback'
 
 export const maxDuration = 60
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     }
 
     const today = new Date().toLocaleDateString('en-GB')
-    const { text } = await generateContent({
+    const { text } = await generateWithSarvamFallback({
       contents: [
         {
           parts: [
